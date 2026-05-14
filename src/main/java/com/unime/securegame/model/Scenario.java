@@ -1,24 +1,34 @@
 package com.unime.securegame.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 @Entity
+@Table(name = "scenarios")
 public class Scenario {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
-    private int lockoutThreshold;
-    private int minPasswordEntropy;
-    private boolean mfaRequired;
 
-    public Scenario() {
-    }
+    /** Max number of failed login attempts before lockout */
+    private int lockoutThreshold = 3;
+
+    /** Minimum Shannon-entropy score for a password to be accepted (0–100 scale) */
+    private int minPasswordEntropy = 40;
+
+    /** Whether this scenario requires MFA (TOTP or WebAuthn) */
+    private boolean mfaRequired = true;
+
+    /** Whether geo-location anomaly detection is active */
+    private boolean geoCheckEnabled = false;
+
+    /** Soft-delete support */
+    private boolean deleted = false;
+
+    public Scenario() {}
 
     public Scenario(String name, int lockoutThreshold, int minPasswordEntropy, boolean mfaRequired) {
         this.name = name;
@@ -27,39 +37,25 @@ public class Scenario {
         this.mfaRequired = mfaRequired;
     }
 
-    public Long getId() {
-        return id;
-    }
+    // --- Getters & Setters ---
 
-    public String getName() {
-        return name;
-    }
+    public Long getId() { return id; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public int getLockoutThreshold() {
-        return lockoutThreshold;
-    }
+    public int getLockoutThreshold() { return lockoutThreshold; }
+    public void setLockoutThreshold(int lockoutThreshold) { this.lockoutThreshold = lockoutThreshold; }
 
-    public void setLockoutThreshold(int lockoutThreshold) {
-        this.lockoutThreshold = lockoutThreshold;
-    }
+    public int getMinPasswordEntropy() { return minPasswordEntropy; }
+    public void setMinPasswordEntropy(int minPasswordEntropy) { this.minPasswordEntropy = minPasswordEntropy; }
 
-    public int getMinPasswordEntropy() {
-        return minPasswordEntropy;
-    }
+    public boolean isMfaRequired() { return mfaRequired; }
+    public void setMfaRequired(boolean mfaRequired) { this.mfaRequired = mfaRequired; }
 
-    public void setMinPasswordEntropy(int minPasswordEntropy) {
-        this.minPasswordEntropy = minPasswordEntropy;
-    }
+    public boolean isGeoCheckEnabled() { return geoCheckEnabled; }
+    public void setGeoCheckEnabled(boolean geoCheckEnabled) { this.geoCheckEnabled = geoCheckEnabled; }
 
-    public boolean isMfaRequired() {
-        return mfaRequired;
-    }
-
-    public void setMfaRequired(boolean mfaRequired) {
-        this.mfaRequired = mfaRequired;
-    }
+    public boolean isDeleted() { return deleted; }
+    public void setDeleted(boolean deleted) { this.deleted = deleted; }
 }

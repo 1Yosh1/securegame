@@ -2,6 +2,7 @@ package com.unime.securegame.controller;
 
 import com.unime.securegame.model.Scenario;
 import com.unime.securegame.repository.ScenarioRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,7 +19,9 @@ public class ScenarioController {
 
     @GetMapping
     public List<Scenario> getAllScenarios() {
-        return scenarioRepository.findAll();
+        return scenarioRepository.findAll().stream()
+                .filter(s -> !s.isDeleted())
+                .toList();
     }
 
     @PostMapping
@@ -27,22 +30,35 @@ public class ScenarioController {
     }
 
     @GetMapping("/{id}")
-    public Scenario getScenario(@PathVariable Long id) {
-        return scenarioRepository.findById(id).orElseThrow(() -> new RuntimeException("Scenario not found"));
+    public ResponseEntity<Scenario> getScenario(@PathVariable Long id) {
+        return scenarioRepository.findById(id)
+                .filter(s -> !s.isDeleted())
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
-    public Scenario updateScenario(@PathVariable Long id, @RequestBody Scenario scenarioDetails) {
-        Scenario scenario = scenarioRepository.findById(id).orElseThrow(() -> new RuntimeException("Scenario not found"));
-        scenario.setName(scenarioDetails.getName());
-        scenario.setLockoutThreshold(scenarioDetails.getLockoutThreshold());
-        scenario.setMinPasswordEntropy(scenarioDetails.getMinPasswordEntropy());
-        scenario.setMfaRequired(scenarioDetails.isMfaRequired());
-        return scenarioRepository.save(scenario);
+    public ResponseEntity<Scenario> updateScenario(@PathVariable Long id, @RequestBody Scenario details) {
+        return scenarioRepository.findById(id)
+                .filter(s -> !s.isDeleted())
+                .map(scenario -> {
+                    scenario.setName(details.getName());
+                    scenario.setLockoutThreshold(details.getLockoutThreshold());
+                    scenario.setMinPasswordEntropy(details.getMinPasswordEntropy());
+                    scenario.setMfaRequired(details.isMfaRequired());
+                    scenario.setGeoCheckEnabled(details.isGeoCheckEnabled());
+                    return ResponseEntity.ok(scenarioRepository.save(scenario));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
-    public void deleteScenario(@PathVariable Long id) {
-        scenarioRepository.deleteById(id);
+    public ResponseEntity<Void> deleteScenario(@PathVariable Long id) {
+        var opt = scenarioRepository.findById(id).filter(s -> !s.isDeleted());
+        if (opt.isEmpty()) return ResponseEntity.notFound().build();
+        Scenario scenario = opt.get();
+        scenario.setDeleted(true);
+        scenarioRepository.save(scenario);
+        return ResponseEntity.<Void>noContent().build();
     }
 }
