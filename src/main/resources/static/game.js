@@ -1,5 +1,6 @@
 let player = { email: '', role: '', roomCode: '', xp: 0, level: 1, currentTopic: '', combo: 1 };
-let pollInterval;
+// WebSocket client (replaces HTTP polling for classroom mode)
+let wsClient = null;
 
 // -- GAME DATA --
 const phishingData = [
@@ -309,10 +310,11 @@ function finishLogin(data) {
 }
 
 function logout() {
-    // Optionally clear device token on logout too – keep it so next login is smooth
+    // Disconnect WebSocket if active
+    if (wsClient && wsClient.connected) wsClient.disconnect();
+    wsClient = null;
     player = { email: '', role: '', roomCode: '', xp: 0, level: 1, currentTopic: '', combo: 1 };
     document.getElementById('hud').style.display = 'none';
-    if (pollInterval) clearInterval(pollInterval);
     document.getElementById('login-email').value = '';
     document.getElementById('login-password').value = '';
     document.getElementById('login-otp').value = '';
@@ -354,69 +356,110 @@ function selectFreePlayMode(mode) {
     }
 }
 
+// ── WebSocket / STOMP classroom (replaces HTTP polling) ──────────────────────
+
+/**
+ * connectWebSocket — establishes a STOMP-over-WebSocket connection.
+ *
+ * Architecture: Publish-Subscribe
+ *   Teacher  → sends to /app/classroom/setTopic
+ *   Server   → broadcasts to /topic/classroom/{code}
+ *   Students ← receive push instantly, no polling
+ */
+function connectWebSocket(roomCode, onMessage) {
+    if (wsClient && wsClient.connected) wsClient.disconnect();
+    const socket = new SockJS('/ws');
+    wsClient = Stomp.over(socket);
+    wsClient.debug = null; // suppress STOMP debug logs
+    wsClient.connect({}, () => {
+        wsClient.subscribe('/topic/classroom/' + roomCode, (frame) => {
+            const event = JSON.parse(frame.body);
+            if (event.type === 'TOPIC_CHANGE') onMessage(event.topic);
+            if (event.type === 'STUDENT_JOINED') {
+                const el = document.getElementById('student-count');
+                if (el) el.innerText = event.count;
+            }
+        });
+    }, () => showToast('WebSocket disconnected. Reconnecting...'));
+}
+
 async function createRoom() {
-    const res = await fetch(`/api/multiplayer/create?teacher=${player.email}`, {method:'POST'});
+    const res = await fetch(`/api/room/create?teacher=${encodeURIComponent(player.email)}`, {method:'POST'});
     const room = await res.json();
     player.roomCode = room.code;
     document.getElementById('teacher-room-info').style.display = 'block';
     document.getElementById('teacher-code').innerText = room.code;
-    pollRoomStatus();
-}
-async function setTopic(topic) {
-    await fetch(`/api/multiplayer/setTopic?code=${player.roomCode}&topic=${topic}`, {method:'POST'});
-    showToast(`Pushed "${topic}" to all connected students!`);
-}
-async function joinRoom() {
-    const code = document.getElementById('join-code').value;
-    try {
-        const res = await fetch(`/api/multiplayer/join?code=${code}&student=${player.email}`, {method:'POST'});
-        if(!res.ok) throw new Error();
-        player.roomCode = code;
-        document.getElementById('student-waiting').style.display = 'block';
-        pollRoomStatus();
-    } catch(e) { showToast("Room not found"); }
-}
-function pollRoomStatus() {
-    pollInterval = setInterval(async () => {
-        try {
-            const res = await fetch(`/api/multiplayer/status?code=${player.roomCode}`);
-            const room = await res.json();
-            if(player.role === 'teacher') {
-                document.getElementById('student-count').innerText = room.students.length;
-            } else if (player.role === 'student') {
-                if(room.topic !== 'WAITING' && room.topic !== player.currentTopic) {
-                    player.currentTopic = room.topic;
-                    launchModule(room.topic);
-                }
-            }
-        } catch(e) {}
-    }, 2000);
+    // Teacher subscribes to the room channel to receive student-count updates
+    connectWebSocket(room.code, () => {});
 }
 
+function setTopic(topic) {
+    if (!wsClient || !wsClient.connected) {
+        showToast('Not connected — reconnecting...'); return;
+    }
+    // Send topic change via STOMP; server broadcasts to all students
+    wsClient.send('/app/classroom/setTopic', {},
+        JSON.stringify({ code: player.roomCode, topic: topic }));
+    showToast(`Pushed "${topic}" to all connected students!`);
+}
+
+async function joinRoom() {
+    const code = document.getElementById('join-code').value.trim();
+    try {
+        const res = await fetch(`/api/room/join?code=${encodeURIComponent(code)}&student=${encodeURIComponent(player.email)}`, {method:'POST'});
+        if (!res.ok) throw new Error();
+        player.roomCode = code;
+        document.getElementById('student-waiting').style.display = 'block';
+        // Student subscribes and reacts to TOPIC_CHANGE pushes
+        connectWebSocket(code, (topic) => {
+            if (topic !== 'WAITING' && topic !== player.currentTopic) {
+                player.currentTopic = topic;
+                launchModule(topic);
+            }
+        });
+        showToast('Connected to classroom ' + code);
+    } catch(e) { showToast('Room not found'); }
+}
+
+// -- GAME PLUGIN REGISTRY --
+// Design pattern: Plugin Registry (a form of the Strategy pattern).
+// To add a new game: insert one entry here. launchModule requires zero changes.
+//   key   → topic string (used in campaign.js and teacher setTopic)
+//   value → function(difficulty, onWin, onLose) that starts the game
+const GameRegistry = {
+    'mfa':           (_d, _w, _l) => renderMfa(),
+    'password':      (_d, _w, _l) => renderPassword(),
+    'phishing':      (_d, _w, _l) => { phishingIndex = 0; renderPhishing(); },
+    'crypto':        (_d, _w, _l) => { cryptoIndex = 0; renderCrypto(); },
+    'matching':      (_d, _w, _l) => { matchesFound = 0; renderMatching(); },
+    'firewall':      (d, w, l)    => MiniGames.startFirewall(d, w, l),
+    'sqli':          (d, w, l)    => MiniGames.startSQLi(d, w, l),
+    'ransomware':    (d, w, l)    => MiniGames.startRansomware(d, w, l),
+    'privesc':       (d, w, l)    => MiniGames.startPrivEsc(d, w, l),
+    'crypto_decode': (d, w, l)    => MiniGames.startCryptoDecoder(d, w, l),
+    'rbac':          (d, w, l)    => MiniGames.startRBAC(d, w, l),
+    'phishing_swipe':(d, w, l)    => MiniGames.startPhishingSwipe(d, w, l),
+    'whack_a_mole':  (d, w, l)    => MiniGames.startWhackAMole(d, w, l),
+};
+
 // -- GAME MODULES --
-function launchModule(topic) {
+function launchModule(topic, difficulty = 2) {
     showScreen('screen-module');
-    // Always reset to arcade container so games don't render into the campaign container
+    // Always reset to arcade container — prevents campaign container bleeding
     MiniGames.targetContainer = null;
     MiniGames.cleanup();
     document.getElementById('module-content').innerHTML = '';
-    document.getElementById('module-title').innerText = "Topic: " + topic.toUpperCase();
+    document.getElementById('module-title').innerText = 'Topic: ' + topic.toUpperCase();
     document.getElementById('module-back-btn').style.display = (player.role === 'solo') ? 'block' : 'none';
     player.combo = 1; updateComboUI();
-    
-    if (topic === 'mfa') renderMfa();
-    else if (topic === 'password') renderPassword();
-    else if (topic === 'phishing') { phishingIndex = 0; renderPhishing(); }
-    else if (topic === 'crypto') { cryptoIndex = 0; renderCrypto(); }
-    else if (topic === 'matching') { matchesFound = 0; renderMatching(); }
-    else if (topic === 'firewall') MiniGames.startFirewall(2, () => winArcade(200), (msg) => loseArcade(msg));
-    else if (topic === 'sqli') MiniGames.startSQLi(2, () => winArcade(200), (msg) => loseArcade(msg));
-    else if (topic === 'ransomware') MiniGames.startRansomware(2, () => winArcade(200), (msg) => loseArcade(msg));
-    else if (topic === 'privesc') MiniGames.startPrivEsc(2, () => winArcade(200), (msg) => loseArcade(msg));
-    else if (topic === 'crypto_decode') MiniGames.startCryptoDecoder(2, () => winArcade(200), (msg) => loseArcade(msg));
-    else if (topic === 'rbac') MiniGames.startRBAC(2, () => winArcade(250), (msg) => loseArcade(msg));
-    else if (topic === 'phishing_swipe') MiniGames.startPhishingSwipe(2, () => winArcade(250), (msg) => loseArcade(msg));
-    else if (topic === 'whack_a_mole') MiniGames.startWhackAMole(2, () => winArcade(250), (msg) => loseArcade(msg));
+
+    const plugin = GameRegistry[topic];
+    if (plugin) {
+        plugin(difficulty, () => winArcade(200), (msg) => loseArcade(msg));
+    } else {
+        document.getElementById('module-content').innerHTML =
+            `<p style="text-align:center;color:var(--red);">Unknown topic: ${escapeHtml(topic)}</p>`;
+    }
 }
 
 function winArcade(xp) {

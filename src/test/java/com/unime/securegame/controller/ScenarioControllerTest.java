@@ -1,6 +1,6 @@
 package com.unime.securegame.controller;
 
-import com.unime.securegame.service.LlmService;
+import com.unime.securegame.service.ScenarioGeneratorService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -19,13 +19,14 @@ class ScenarioControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private LlmService llmService;
+    private ScenarioGeneratorService scenarioGenerator;
 
     @Test
-    void generateScenario_returnsLlmResponse() throws Exception {
-        when(llmService.generateScenario("TestTopic", "crypto")).thenReturn("[{\"mock\":\"response\"}]");
+    void generateScenario_returnsPureJavaResponse() throws Exception {
+        when(scenarioGenerator.generateScenario("TestTopic", "crypto"))
+                .thenReturn("[{\"mock\":\"response\"}]");
 
-        mockMvc.perform(get("/api/scenario/generate")
+        mockMvc.perform(get("/api/scenarios/generate")
                         .param("topic", "TestTopic")
                         .param("type", "crypto"))
                 .andExpect(status().isOk())
