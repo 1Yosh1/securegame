@@ -51,3 +51,22 @@ python test_auth.py
 ## Security
 
 This project contains explicit educational demonstrations of vulnerabilities and adversarial logic. Do NOT run this application on a public-facing unhardened server without adjusting the default test configurations.
+
+### 4. Running with Docker (Production/Full Stack)
+If you prefer to run the application fully containerized with a persistent MariaDB database, you can use the provided Docker setup.
+
+First, build the Java application package:
+```bash
+./mvnw clean package -DskipTests
+```
+
+Next, start the containers using Docker Compose:
+```bash
+docker-compose up -d --build
+```
+This will spin up both the **MariaDB database** and the **SecureGame app**. The app will be available at `http://localhost:8080`.
+
+To stop the containers later, run:
+```bash
+docker-compose down
+```
