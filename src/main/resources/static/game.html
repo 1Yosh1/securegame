@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>SecureGame: Terraria Edition</title>
-    <link rel="stylesheet" href="game.css?v=3">
+    <link rel="stylesheet" href="game.css">
 </head>
 <body>
     <div id="toast" class="toast"></div>
@@ -17,55 +17,20 @@
                 <div id="level-label" style="text-align:right;">Lv.1</div>
                 <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
             </div>
-            <button onclick="logout()" style="padding: 5px 10px; font-size:10px; background:var(--red); color:white; border:none; cursor:pointer;">Logout</button>
         </div>
     </div>
 
-    <!-- 1. AUTH SCREEN -->
+    <!-- 1. LOGIN SCREEN -->
     <div id="screen-login" class="screen active" style="justify-content: center;">
         <div class="panel">
             <h2 style="font-size: 20px;">SecureGame<br><br><span style="color:var(--grass); font-size:12px;">Classroom Edition</span></h2>
+            <p style="margin-bottom:20px; font-size:10px; text-align:center; color:#ccc;">Authentication required. Enter email to receive OTP.</p>
+            <input type="email" id="login-email" placeholder="Email Address">
+            <button onclick="requestOTP()" style="width:100%; margin-bottom:10px;">Send OTP to Terminal</button>
             
-            <div style="display:flex; gap:10px; margin-bottom:20px;">
-                <button id="tab-login" onclick="switchAuthTab('login')" style="flex:1; background:var(--grass); color:black;">Login</button>
-                <button id="tab-register" onclick="switchAuthTab('register')" style="flex:1; background:#333; color:white;">Register</button>
-            </div>
-
-            <!-- LOGIN FORM -->
-            <div id="form-login">
-                <input type="email" id="login-email" placeholder="Email Address">
-                <input type="password" id="login-password" placeholder="Password" style="margin-top:10px;">
-                <button onclick="requestLogin()" style="width:100%; margin-top:15px; margin-bottom:10px; background:var(--sky); color:black;">Login</button>
-                <a href="#" onclick="showRecoveryForm()" style="display:block; text-align:center; margin-top:10px; color:var(--sky); font-size:10px; text-decoration:none;">Forgot Password?</a>
-                
-                <div id="otp-section" style="display:none; margin-top:20px; border-top:4px dashed #000; padding-top:20px;">
-                    <p style="font-size:10px; color:var(--sky); margin-bottom:10px;">Enter the 6-digit OTP sent to your email</p>
-                    <input type="text" id="login-otp" placeholder="6-digit OTP">
-                    <button onclick="verifyOTP()" style="width:100%; margin-top:10px; background:var(--grass); color:#000;">Verify & Enter</button>
-                </div>
-            </div>
-
-            <!-- RECOVERY FORM -->
-            <div id="form-recovery" style="display:none;">
-                <p style="font-size:10px; color:var(--sky); margin-bottom:10px;">Enter your email to request a password reset OTP.</p>
-                <input type="email" id="recovery-email" placeholder="Email Address">
-                <button onclick="requestRecoveryOtp()" style="width:100%; margin-top:10px; background:var(--sky); color:black;">Send Reset OTP</button>
-                
-                <div id="recovery-reset-section" style="display:none; margin-top:20px; border-top:4px dashed #000; padding-top:20px;">
-                    <input type="text" id="recovery-otp" placeholder="6-digit OTP" style="margin-bottom:10px;">
-                    <input type="password" id="recovery-password" placeholder="New Password">
-                    <button onclick="submitPasswordReset()" style="width:100%; margin-top:10px; background:var(--grass); color:#000;">Reset Password</button>
-                </div>
-                
-                <button onclick="cancelRecovery()" style="width:100%; margin-top:15px; background:#333; color:white;">Back to Login</button>
-            </div>
-
-            <!-- REGISTER FORM -->
-            <div id="form-register" style="display:none;">
-                <input type="text" id="reg-name" placeholder="Full Name">
-                <input type="email" id="reg-email" placeholder="Email Address" style="margin-top:10px;">
-                <input type="password" id="reg-password" placeholder="Password" style="margin-top:10px;">
-                <button onclick="registerUser()" style="width:100%; margin-top:15px; background:var(--grass); color:black;">Create Account</button>
+            <div id="otp-section" style="display:none; margin-top:20px; border-top:4px dashed #000; padding-top:20px;">
+                <input type="text" id="login-otp" placeholder="6-digit OTP">
+                <button onclick="verifyOTP()" style="width:100%; background:var(--grass); color:#000;">Login to Server</button>
             </div>
         </div>
     </div>
@@ -77,16 +42,6 @@
             <button onclick="selectRole('teacher')" style="width:100%; margin-bottom:15px; background:var(--grass); color:black;">Professor (Host Classroom)</button>
             <button onclick="selectRole('student')" style="width:100%; margin-bottom:15px; background:var(--sky); color:black;">Student (Join via Code)</button>
             <button onclick="selectRole('solo')" style="width:100%; background:var(--accent); color:black;">Solo Player (Free Play)</button>
-        </div>
-    </div>
-
-    <!-- FREE PLAY MODES -->
-    <div id="screen-freeplay-modes" class="screen" style="justify-content: center;">
-        <div class="panel">
-            <h2>Select Mode</h2>
-            <button onclick="selectFreePlayMode('arcade')" style="width:100%; margin-bottom:15px; background:var(--sky); color:black;">Arcade Mode</button>
-            <button onclick="selectFreePlayMode('campaign')" style="width:100%; margin-bottom:15px; background:var(--grass); color:black;">Campaign Mode</button>
-            <button onclick="showScreen('screen-role')" style="width:100%; background:#333; color:white;">Change Role</button>
         </div>
     </div>
 
@@ -117,7 +72,6 @@
                         <button onclick="generateScenario('matching')" style="flex:1; background:#333; color:white;">Seed Match</button>
                     </div>
                 </div>
-                <button onclick="showScreen('screen-role')" style="width:100%; background:#333; color:white; margin-top: 20px;">Change Role</button>
             </div>
         </div>
     </div>
@@ -132,52 +86,21 @@
                 <p style="color:var(--accent); animation: blink 1s infinite;">Connected!</p>
                 <p style="margin-top:10px; font-size:10px;">Awaiting module assignment from Professor...</p>
             </div>
-            <button onclick="showScreen('screen-role')" style="width:100%; background:#333; color:white; margin-top: 15px;">Change Role</button>
         </div>
     </div>
 
     <!-- SOLO HUB -->
     <div id="screen-hub" class="screen">
         <div class="panel" style="margin-top: 60px;">
-            <h2>Training Hub (Arcade)</h2>
-            <p style="text-align:center; font-size:10px; margin-bottom:20px; color:#ccc;">Select any topic to play games there.</p>
+            <h2>Training Hub</h2>
+            <p style="text-align:center; font-size:10px; margin-bottom:20px; color:#ccc;">Select a module to practice at your own pace.</p>
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <button onclick="launchModule('phishing')" style="background:var(--sky); color:black;">Phishing Rapid-Fire</button>
                 <button onclick="launchModule('password')" style="background:var(--grass); color:black;">Password Fortress</button>
                 <button onclick="launchModule('mfa')" style="background:var(--wood); color:white;">MFA Shield</button>
                 <button onclick="launchModule('crypto')" style="background:#e74c3c; color:white;">Cryptography Quiz</button>
                 <button onclick="launchModule('matching')" style="background:#9b59b6; color:white;">Access Control Match</button>
-                <button onclick="launchModule('firewall')" style="background:var(--sky); color:black;">Firewall Defender</button>
-                <button onclick="launchModule('sqli')" style="background:var(--grass); color:black;">SQLi Lockpicker</button>
-                <button onclick="launchModule('ransomware')" style="background:var(--red); color:white;">Ransomware Quarantine</button>
-                <button onclick="launchModule('privesc')" style="background:var(--accent); color:black;">PrivEsc Maze</button>
-                <button onclick="launchModule('crypto_decode')" style="background:#e74c3c; color:white;">Crypto Decoder</button>
-                <button onclick="showScreen('screen-freeplay-modes')" style="background:#333; color:white; margin-top: 10px;">Back to Modes</button>
             </div>
-        </div>
-    </div>
-
-    <!-- CAMPAIGN LEVELS -->
-    <div id="screen-campaign-levels" class="screen">
-        <div class="panel" style="margin-top: 60px; max-width: 600px;">
-            <h2>Campaign Levels</h2>
-            <p style="text-align:center; font-size:10px; margin-bottom:20px; color:#ccc;">Pass all 20 levels to master cybersecurity.</p>
-            <div id="campaign-levels-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:20px;">
-                <!-- Generated dynamically in game.js -->
-            </div>
-            <button onclick="showScreen('screen-freeplay-modes')" style="width:100%; background:#333; color:white;">Back to Modes</button>
-        </div>
-    </div>
-
-    <!-- CAMPAIGN GAME -->
-    <div id="screen-campaign-game" class="screen">
-        <div class="panel" style="margin-top: 60px; max-width: 600px;">
-            <h2 id="campaign-level-title" style="color:var(--sky);">Level X: Title</h2>
-            <p id="campaign-level-desc" style="font-size:10px; color:#aaa; margin-bottom:20px;"></p>
-            <div id="campaign-level-content">
-                <!-- Question content -->
-            </div>
-            <button onclick="quitCampaign()" style="width:100%; background:#333; color:white; margin-top:20px;">Quit to Levels</button>
         </div>
     </div>
 
@@ -202,8 +125,6 @@
         </div>
     </div>
 
-    <script src="minigames.js?v=4"></script>
-    <script src="campaign.js?v=4"></script>
-    <script src="game.js?v=4"></script>
+    <script src="game.js"></script>
 </body>
 </html>

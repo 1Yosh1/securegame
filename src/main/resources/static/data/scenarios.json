@@ -1,0 +1,23 @@
+{
+    "phishing": [
+        {"url": "http://paypal-security-update-now.com/login", "reason": "Uses a sense of urgency and hyphenated domains instead of the official paypal.com.", "type": "Urgency"},
+        {"url": "https://secure-apple.id.update.com", "reason": "Subdomain spoofing. The actual root domain is 'update.com', not 'apple.com'.", "type": "Subdomain Spoofing"},
+        {"url": "http://xn--b1a1al.com", "reason": "Punycode attack (homograph). Looks like 'paypal.com' in some browsers but uses Cyrillic characters.", "type": "Homograph Attack"},
+        {"url": "https://drive.google.com.file-sharing-system.net/login", "reason": "Deceptive URL path masking the true domain 'file-sharing-system.net'.", "type": "Path Deception"},
+        {"url": "https://www.netflix.com-billing-update.info/secure", "reason": "Appends hyphens and words to a legitimate brand name on a different Top Level Domain (.info instead of .com).", "type": "TLD Spoofing"}
+    ],
+    "crypto": [
+        {"q": "What is the primary purpose of a cryptographic hash function?", "opts": ["To encrypt data for secure transmission", "To ensure data integrity and detect tampering", "To compress large files", "To hide IP addresses"], "ans": 1, "expl": "Hash functions generate a unique fixed-size string for data. Any change to the data changes the hash, ensuring integrity."},
+        {"q": "Which of these is a characteristic of symmetric encryption?", "opts": ["Uses two different keys", "Slower than asymmetric encryption", "Uses the same key for encryption and decryption", "Does not require key exchange"], "ans": 2, "expl": "Symmetric encryption uses a single shared secret key, making it fast but requiring secure key distribution."},
+        {"q": "What role does a Certificate Authority (CA) play in PKI?", "opts": ["It encrypts network traffic", "It stores passwords securely", "It issues and verifies digital certificates linking public keys to entities", "It blocks malware"], "ans": 2, "expl": "A CA acts as a trusted third party that cryptographically signs digital certificates to verify identity."},
+        {"q": "What is the key difference between hashing and encryption?", "opts": ["Hashing is reversible, encryption is not", "Encryption requires a key, hashing does not (typically)", "Hashing is for speed, encryption is for size", "There is no difference"], "ans": 1, "expl": "Encryption is a two-way function meant to be decrypted with a key. Hashing is a one-way mathematical function."},
+        {"q": "What does a digital signature provide that standard encryption does not?", "opts": ["Confidentiality", "Speed", "Non-repudiation", "Compression"], "ans": 2, "expl": "A digital signature proves the sender's identity and that the message wasn't altered (Non-repudiation), but it doesn't hide the message content."}
+    ],
+    "access_control": [
+        {"term": "Principle of Least Privilege", "def": "Granting users only the bare minimum access rights needed to perform their job functions."},
+        {"term": "Zero Trust Architecture", "def": "A security model requiring strict identity verification for every person and device trying to access resources, regardless of network perimeter."},
+        {"term": "Role-Based Access Control (RBAC)", "def": "Assigning permissions to roles rather than individual users, simplifying management."},
+        {"term": "Mandatory Access Control (MAC)", "def": "A strict OS-enforced access policy where users cannot change permissions on files, typically used in military/government."},
+        {"term": "Separation of Duties", "def": "Requiring more than one person to complete a critical task to prevent fraud and errors."}
+    ]
+}

@@ -310,6 +310,24 @@ function launchModule(topic) {
     else if (topic === 'phishing') { phishingIndex = 0; renderPhishing(); }
     else if (topic === 'crypto') { cryptoIndex = 0; renderCrypto(); }
     else if (topic === 'matching') { matchesFound = 0; renderMatching(); }
+    else if (topic === 'firewall') MiniGames.startFirewall(2, () => winArcade(200), (msg) => loseArcade(msg));
+    else if (topic === 'sqli') MiniGames.startSQLi(2, () => winArcade(200), (msg) => loseArcade(msg));
+    else if (topic === 'ransomware') MiniGames.startRansomware(2, () => winArcade(200), (msg) => loseArcade(msg));
+    else if (topic === 'privesc') MiniGames.startPrivEsc(2, () => winArcade(200), (msg) => loseArcade(msg));
+    else if (topic === 'crypto_decode') MiniGames.startCryptoDecoder(2, () => winArcade(200), (msg) => loseArcade(msg));
+}
+
+function winArcade(xp) {
+    addXp(xp * player.combo);
+    player.combo++; updateComboUI();
+    showAiFeedback("Success!", "You successfully defended the system.", true);
+    setTimeout(() => { closeAiModal(); showScreen('screen-hub'); }, 2000);
+}
+
+function loseArcade(msg) {
+    player.combo = 1; updateComboUI();
+    showAiFeedback("System Compromised", msg || "You failed to stop the attack.", false);
+    setTimeout(() => { closeAiModal(); showScreen('screen-hub'); }, 3000);
 }
 
 // 1. MFA Shield
@@ -721,60 +739,124 @@ function startCampaignLevel(levelNum) {
     if(!lvlObj) return;
     
     currentCampaignLevel = lvlObj;
-    currentCampaignQIdx = 0;
     
     showScreen('screen-campaign-game');
     document.getElementById('campaign-level-title').innerText = `Level ${lvlObj.level}: ${lvlObj.title}`;
     document.getElementById('campaign-level-desc').innerText = lvlObj.description;
     
+    // Set target container for MiniGames to the campaign content area
+    MiniGames.targetContainer = 'campaign-level-content';
+    
     renderCampaignQuestion();
 }
 
 function renderCampaignQuestion() {
+    const lvl = currentCampaignLevel;
     const content = document.getElementById('campaign-level-content');
-    if(currentCampaignQIdx >= currentCampaignLevel.questions.length) {
+    content.innerHTML = ''; // Clear previous
+
+    const winCampaign = () => {
         showToast("Level Cleared!");
         content.innerHTML = `
             <div style="text-align:center;">
                 <h3 style="color:var(--grass); font-size:18px;">CONGRATULATIONS!</h3>
-                <p style="margin: 15px 0;">You cleared all threats in Level ${currentCampaignLevel.level}!</p>
+                <p style="margin: 15px 0;">You cleared all threats in Level ${lvl.level}!</p>
                 <p style="color:var(--sky);">+1000 XP Granted</p>
                 <button onclick="clearCampaignLevelReward()" style="width:100%; background:var(--grass); color:black; margin-top:20px;">Claim Reward & Back</button>
             </div>
         `;
-        return;
-    }
-    
-    const q = currentCampaignLevel.questions[currentCampaignQIdx];
-    let html = `
-        <div style="background:#222; padding:20px; border:2px solid var(--wood); margin-bottom:20px;">
-            <p style="font-size:12px; line-height:1.6;">${escapeHtml(q.q)}</p>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:10px;">`;
-    
-    q.opts.forEach((opt, idx) => {
-        html += `<button onclick="submitCampaignAnswer(${idx})" style="text-align:left; text-transform:none;">${idx+1}. ${escapeHtml(opt)}</button>`;
-    });
-    html += `</div>`;
-    content.innerHTML = html;
-}
+    };
 
-function submitCampaignAnswer(idx) {
-    const q = currentCampaignLevel.questions[currentCampaignQIdx];
-    const correct = (idx === q.ans);
-    
-    if(correct) {
-        playSound('success');
-        showToast("Correct response!");
-        currentCampaignQIdx++;
-        renderCampaignQuestion();
-    } else {
+    const loseCampaign = (msg) => {
         playSound('error');
-        showToast("Incorrect system response! Try again.");
+        showToast("Failed: " + msg);
         const panel = document.querySelector('#screen-campaign-game .panel');
         panel.classList.add('shake');
         setTimeout(() => panel.classList.remove('shake'), 500);
+        content.innerHTML = `
+            <div style="text-align:center;">
+                <h3 style="color:var(--red); font-size:18px;">MISSION FAILED</h3>
+                <p style="margin: 15px 0;">${msg}</p>
+                <button onclick="renderCampaignQuestion()" style="width:100%; background:var(--red); color:white; margin-top:20px;">Retry Level</button>
+            </div>
+        `;
+    };
+
+    const diff = lvl.difficulty || 1;
+
+    if (lvl.type === 'phishing') {
+        // Adapt standard rendering for campaign context by overriding module-content just temporarily
+        const oldTitle = document.getElementById('module-title');
+        if(oldTitle) oldTitle.innerText = "Campaign";
+        const oldContainer = document.getElementById('module-content');
+        document.getElementById('screen-module').classList.add('active');
+        document.getElementById('screen-campaign-game').classList.remove('active');
+        phishingIndex = 0; 
+        
+        // Temporarily hack the phishing finish logic
+        const oldRender = window.renderPhishing;
+        window.renderPhishing = function() {
+            if (phishingIndex >= 5) { // Only do 5 per campaign level
+                document.getElementById('screen-module').classList.remove('active');
+                document.getElementById('screen-campaign-game').classList.add('active');
+                window.renderPhishing = oldRender;
+                winCampaign();
+                return;
+            }
+            oldRender();
+        };
+        renderPhishing();
+    } 
+    else if (lvl.type === 'password') {
+        document.getElementById('screen-module').classList.add('active');
+        document.getElementById('screen-campaign-game').classList.remove('active');
+        window.passCleared = false;
+        
+        const oldAddXp = window.addXp;
+        window.addXp = function(amt) {
+            document.getElementById('screen-module').classList.remove('active');
+            document.getElementById('screen-campaign-game').classList.add('active');
+            window.addXp = oldAddXp;
+            winCampaign();
+        };
+        renderPassword();
     }
+    else if (lvl.type === 'mfa') {
+        document.getElementById('screen-module').classList.add('active');
+        document.getElementById('screen-campaign-game').classList.remove('active');
+        
+        const oldAddXp = window.addXp;
+        window.addXp = function(amt) {
+            document.getElementById('screen-module').classList.remove('active');
+            document.getElementById('screen-campaign-game').classList.add('active');
+            window.addXp = oldAddXp;
+            winCampaign();
+        };
+        renderMfa();
+    }
+    else if (lvl.type === 'matching') {
+        document.getElementById('screen-module').classList.add('active');
+        document.getElementById('screen-campaign-game').classList.remove('active');
+        matchesFound = 0;
+        
+        const oldRender = window.renderMatching;
+        window.renderMatching = function() {
+            if(matchesFound === matchingData.terms.length) {
+                document.getElementById('screen-module').classList.remove('active');
+                document.getElementById('screen-campaign-game').classList.add('active');
+                window.renderMatching = oldRender;
+                winCampaign();
+                return;
+            }
+            oldRender();
+        };
+        renderMatching();
+    }
+    else if (lvl.type === 'firewall') MiniGames.startFirewall(diff, winCampaign, loseCampaign);
+    else if (lvl.type === 'sqli') MiniGames.startSQLi(diff, winCampaign, loseCampaign);
+    else if (lvl.type === 'ransomware') MiniGames.startRansomware(diff, winCampaign, loseCampaign);
+    else if (lvl.type === 'privesc') MiniGames.startPrivEsc(diff, winCampaign, loseCampaign);
+    else if (lvl.type === 'crypto_decode') MiniGames.startCryptoDecoder(diff, winCampaign, loseCampaign);
 }
 
 async function clearCampaignLevelReward() {
