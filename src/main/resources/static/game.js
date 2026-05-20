@@ -650,7 +650,7 @@ let currentCampaignQIdx = 0;
 function showCampaignLevels() {
     showScreen('screen-campaign-levels');
     const container = document.getElementById('campaign-levels-grid');
-    container.style = '';
+    container.removeAttribute('style');
     container.className = 'map-container';
     container.innerHTML = '';
     
