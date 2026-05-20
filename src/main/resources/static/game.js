@@ -396,6 +396,10 @@ function pollRoomStatus() {
 // -- GAME MODULES --
 function launchModule(topic) {
     showScreen('screen-module');
+    // Always reset to arcade container so games don't render into the campaign container
+    MiniGames.targetContainer = null;
+    MiniGames.cleanup();
+    document.getElementById('module-content').innerHTML = '';
     document.getElementById('module-title').innerText = "Topic: " + topic.toUpperCase();
     document.getElementById('module-back-btn').style.display = (player.role === 'solo') ? 'block' : 'none';
     player.combo = 1; updateComboUI();
@@ -410,6 +414,9 @@ function launchModule(topic) {
     else if (topic === 'ransomware') MiniGames.startRansomware(2, () => winArcade(200), (msg) => loseArcade(msg));
     else if (topic === 'privesc') MiniGames.startPrivEsc(2, () => winArcade(200), (msg) => loseArcade(msg));
     else if (topic === 'crypto_decode') MiniGames.startCryptoDecoder(2, () => winArcade(200), (msg) => loseArcade(msg));
+    else if (topic === 'rbac') MiniGames.startRBAC(2, () => winArcade(250), (msg) => loseArcade(msg));
+    else if (topic === 'phishing_swipe') MiniGames.startPhishingSwipe(2, () => winArcade(250), (msg) => loseArcade(msg));
+    else if (topic === 'whack_a_mole') MiniGames.startWhackAMole(2, () => winArcade(250), (msg) => loseArcade(msg));
 }
 
 function winArcade(xp) {
