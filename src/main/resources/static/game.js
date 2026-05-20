@@ -122,6 +122,51 @@ function validateEmail(email) {
     return re.test(String(email).toLowerCase());
 }
 
+// --- Password strength utilities ---
+function calcPasswordEntropy(pass) {
+    let pool = 0;
+    if (/[a-z]/.test(pass)) pool += 26;
+    if (/[A-Z]/.test(pass)) pool += 26;
+    if (/[0-9]/.test(pass)) pool += 10;
+    if (/[^a-zA-Z0-9]/.test(pass)) pool += 32;
+    return pool > 0 ? Math.floor(pass.length * Math.log2(pool)) : 0;
+}
+
+function getPasswordRequirements(pass) {
+    return [
+        { label: 'Uppercase letter', ok: /[A-Z]/.test(pass) },
+        { label: 'Lowercase letter', ok: /[a-z]/.test(pass) },
+        { label: 'Number',           ok: /[0-9]/.test(pass) },
+        { label: 'Special character',ok: /[^a-zA-Z0-9]/.test(pass) },
+        { label: 'Min 12 characters', ok: pass.length >= 12 },
+        { label: '≥70 bits entropy', ok: calcPasswordEntropy(pass) >= 70 }
+    ];
+}
+
+function updatePasswordStrengthUI(pass) {
+    const entropy = calcPasswordEntropy(pass);
+    const reqs = getPasswordRequirements(pass);
+    const allOk = reqs.every(r => r.ok);
+
+    // Clamp bar to 100
+    const pct = Math.min(Math.round((entropy / 100) * 100), 100);
+    const hue = Math.round((pct / 100) * 120); // 0=red, 120=green
+    const barEl = document.getElementById('reg-strength-bar');
+    const lblEl = document.getElementById('reg-strength-label');
+    const reqEl = document.getElementById('reg-strength-reqs');
+    if (!barEl) return;
+    barEl.style.width = pct + '%';
+    barEl.style.background = `hsl(${hue}, 100%, 40%)`;
+
+    let label = entropy < 40 ? 'Very Weak' : entropy < 60 ? 'Weak' : entropy < 70 ? 'Fair' : entropy < 90 ? 'Strong' : 'Very Strong';
+    lblEl.innerText = `${label} (${entropy} bits)`;
+    lblEl.style.color = `hsl(${hue}, 100%, 55%)`;
+
+    reqEl.innerHTML = reqs.map(r =>
+        `<div style="color:${r.ok ? 'var(--grass)' : 'var(--red)'}; font-size:9px;">${r.ok ? '✔' : '✘'} ${r.label}</div>`
+    ).join('');
+}
+
 async function registerUser() {
     const name = document.getElementById('reg-name').value.trim();
     const email = document.getElementById('reg-email').value.trim();
@@ -129,6 +174,11 @@ async function registerUser() {
 
     if(!name || !email || !pass) return showToast("Please fill all required fields");
     if(!validateEmail(email)) return showToast("Please enter a valid email address");
+
+    const reqs = getPasswordRequirements(pass);
+    if (!reqs.every(r => r.ok)) {
+        return showToast("Password does not meet requirements!");
+    }
 
     const formData = new URLSearchParams();
     formData.append("email", email);
@@ -155,18 +205,56 @@ async function registerUser() {
     }
 }
 
+// -- Device token helpers --
+function getDeviceToken(email) {
+    try { return localStorage.getItem('sg_tok_' + btoa(email)); } catch(e) { return null; }
+}
+function setDeviceToken(email, token) {
+    try { localStorage.setItem('sg_tok_' + btoa(email), token); } catch(e) {}
+}
+function clearDeviceToken(email) {
+    try { localStorage.removeItem('sg_tok_' + btoa(email)); } catch(e) {}
+}
+
 async function requestLogin() {
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-password').value;
     if(!email || !pass) return showToast("Enter email and password");
     if(!validateEmail(email)) return showToast("Please enter a valid email address");
     player.email = email;
+
+    // Check if this device is already trusted
+    const savedToken = getDeviceToken(email);
+    if (savedToken) {
+        showToast("Recognized device – logging you in...");
+        document.getElementById('form-login').style.opacity = '0.5';
+        try {
+            const formData = new URLSearchParams();
+            formData.append("email", email);
+            formData.append("password", pass);
+            formData.append("deviceToken", savedToken);
+            const res = await fetch('/api/auth/login-token', { method: 'POST', body: formData, headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
+            document.getElementById('form-login').style.opacity = '1';
+            if (res.ok) {
+                const data = await res.json();
+                finishLogin(data);
+                return;
+            } else {
+                // Token invalid/expired – fall through to OTP
+                clearDeviceToken(email);
+                showToast("Session expired. Sending OTP to verify identity.");
+            }
+        } catch(e) {
+            document.getElementById('form-login').style.opacity = '1';
+        }
+    }
     
+    // Standard OTP path
     const formData = new URLSearchParams();
     formData.append("email", email);
     formData.append("password", pass);
 
-    showToast("Connecting to server & Sending OTP...");
+    showToast("Sending verification code to your email...");
     document.getElementById('form-login').style.opacity = '0.5';
 
     try {
@@ -176,10 +264,8 @@ async function requestLogin() {
             const data = await res.json();
             player.role = data.role.toLowerCase();
             document.getElementById('otp-section').style.display = 'block';
-            if (data.otp) {
-                document.getElementById('login-otp').value = data.otp;
-            }
-            showToast("OTP generated and sent to email! Check terminal console for local testing.");
+            // No auto-fill – user must enter the OTP from their email
+            showToast("OTP sent! Check your email inbox.");
         } else {
             const data = await res.json();
             showToast("Login failed: " + data.message);
@@ -189,8 +275,10 @@ async function requestLogin() {
         showToast("Backend not responding."); 
     }
 }
+
 async function verifyOTP() {
-    const otp = document.getElementById('login-otp').value;
+    const otp = document.getElementById('login-otp').value.trim();
+    if (!otp) return showToast("Enter the OTP from your email");
     try {
         const formData = new URLSearchParams();
         formData.append("email", player.email);
@@ -199,22 +287,29 @@ async function verifyOTP() {
         
         if(res.ok) {
             const data = await res.json();
-            player.role = data.role.toLowerCase();
-            player.xp = data.xp || 0;
-            player.level = data.level || 1;
-
-            document.getElementById('hud').style.display = 'flex';
-            document.getElementById('player-info').innerText = player.email;
-            document.getElementById('level-label').innerText = "Lv." + player.level;
-            document.getElementById('xp-fill').style.width = (player.xp/1000)*100 + "%";
-            
-            showScreen('screen-role');
-            showToast(`Authentication successful. Select your role.`);
-        } else { showToast("Invalid OTP."); }
+            // Save a device token so next login skips OTP
+            if (data.deviceToken) {
+                setDeviceToken(player.email, data.deviceToken);
+            }
+            finishLogin(data);
+        } else { showToast("Invalid OTP. Please try again."); }
     } catch(e) { showToast("Error verifying OTP."); }
 }
 
+function finishLogin(data) {
+    player.role = (data.role || 'solo').toLowerCase();
+    player.xp = data.xp || 0;
+    player.level = data.level || 1;
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('player-info').innerText = player.email;
+    document.getElementById('level-label').innerText = 'Lv.' + player.level;
+    document.getElementById('xp-fill').style.width = (player.xp / 1000) * 100 + '%';
+    showScreen('screen-role');
+    showToast('Welcome back, ' + player.email.split('@')[0] + '!');
+}
+
 function logout() {
+    // Optionally clear device token on logout too – keep it so next login is smooth
     player = { email: '', role: '', roomCode: '', xp: 0, level: 1, currentTopic: '', combo: 1 };
     document.getElementById('hud').style.display = 'none';
     if (pollInterval) clearInterval(pollInterval);

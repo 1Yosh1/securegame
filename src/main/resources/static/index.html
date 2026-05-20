@@ -64,7 +64,18 @@
             <div id="form-register" style="display:none;">
                 <input type="text" id="reg-name" placeholder="Full Name">
                 <input type="email" id="reg-email" placeholder="Email Address" style="margin-top:10px;">
-                <input type="password" id="reg-password" placeholder="Password" style="margin-top:10px;">
+                <input type="password" id="reg-password" placeholder="Password (min 12 chars)" style="margin-top:10px;"
+                    oninput="updatePasswordStrengthUI(this.value)" autocomplete="new-password">
+                
+                <!-- Strength Bar -->
+                <div style="margin-top:8px;">
+                    <div style="background:#222; height:8px; border:2px solid #444; border-radius:2px; overflow:hidden;">
+                        <div id="reg-strength-bar" style="height:100%; width:0%; background:red; transition:width 0.3s, background 0.3s;"></div>
+                    </div>
+                    <div id="reg-strength-label" style="font-size:9px; margin-top:4px; color:#888;">Enter a password above</div>
+                    <div id="reg-strength-reqs" style="margin-top:8px; display:flex; flex-direction:column; gap:2px;"></div>
+                </div>
+
                 <button onclick="registerUser()" style="width:100%; margin-top:15px; background:var(--grass); color:black;">Create Account</button>
             </div>
         </div>
@@ -202,8 +213,8 @@
         </div>
     </div>
 
-    <script src="minigames.js?v=4"></script>
-    <script src="campaign.js?v=4"></script>
-    <script src="game.js?v=4"></script>
+    <script src="minigames.js?v=5"></script>
+    <script src="campaign.js?v=5"></script>
+    <script src="game.js?v=5"></script>
 </body>
 </html>

@@ -18,6 +18,14 @@ public class AuthController {
     private final EmailService emailService;
     private final UserRepository userRepository;
     private final Map<String, String> otps = new java.util.concurrent.ConcurrentHashMap<>();
+    // email -> device token mapping (in production, use a DB table with expiry)
+    private final Map<String, String> deviceTokens = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private String generateToken() {
+        byte[] bytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
 
     public AuthController(EmailService emailService, UserRepository userRepository) {
         this.emailService = emailService;
@@ -79,23 +87,44 @@ public class AuthController {
             return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"Invalid credentials\"}");
         }
 
-        // Generate and send OTP
+        // Generate and send OTP — do NOT include otp in response (was a dev shortcut)
         String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
         otps.put(email, otp);
-        
         emailService.sendOtpEmail(email, otp);
-        return ResponseEntity.ok("{\"status\":\"otp_sent\", \"role\":\"" + user.getRole() + "\", \"otp\":\"" + otp + "\"}");
+        return ResponseEntity.ok("{\"status\":\"otp_sent\", \"role\":\"" + user.getRole() + "\"}");
+    }
+
+    @PostMapping("/login-token")
+    public ResponseEntity<?> loginWithToken(@RequestParam String email,
+                                            @RequestParam String password,
+                                            @RequestParam String deviceToken) {
+        Optional<UserEntity> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"Invalid credentials\"}");
+        }
+        UserEntity user = userOpt.get();
+        if (!user.getPassword().equals(hashPassword(password))) {
+            return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"Invalid credentials\"}");
+        }
+        String savedToken = deviceTokens.get(email);
+        if (savedToken == null || !savedToken.equals(deviceToken)) {
+            return ResponseEntity.status(401).body("{\"status\":\"error\", \"message\":\"Device not recognized\"}");
+        }
+        return ResponseEntity.ok("{\"status\":\"success\", \"role\":\"" + user.getRole() + "\", \"xp\":" + user.getXp() + ", \"level\":" + user.getLevel() + ", \"deviceToken\":\"" + savedToken + "\"}");
     }
 
     @PostMapping("/verify")
     public ResponseEntity<?> verifyOtp(@RequestParam String email, @RequestParam String otp) {
-        String correctOtp = otps.remove(email.trim()); // Remove immediately to ensure single-use (prevents brute-force)
+        String correctOtp = otps.remove(email.trim()); // Remove immediately (prevents brute-force)
         boolean isValid = otp != null && otp.equals(correctOtp);
         if (isValid) {
             Optional<UserEntity> userOpt = userRepository.findByEmail(email.trim());
             if(userOpt.isPresent()) {
                 UserEntity user = userOpt.get();
-                return ResponseEntity.ok("{\"status\":\"success\", \"role\":\"" + user.getRole() + "\", \"xp\":" + user.getXp() + ", \"level\":" + user.getLevel() + "}");
+                // Issue a device token for passwordless subsequent logins
+                String token = generateToken();
+                deviceTokens.put(email.trim(), token);
+                return ResponseEntity.ok("{\"status\":\"success\", \"role\":\"" + user.getRole() + "\", \"xp\":" + user.getXp() + ", \"level\":" + user.getLevel() + ", \"deviceToken\":\"" + token + "\"}");
             }
         }
         return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"Invalid OTP\"}");
@@ -127,7 +156,8 @@ public class AuthController {
         recoveryOtps.put(email.trim(), otp);
 
         emailService.sendOtpEmail(email.trim(), otp);
-        return ResponseEntity.ok("{\"status\":\"success\", \"message\":\"Recovery OTP sent to email\", \"otp\":\"" + otp + "\"}");
+        // Do NOT expose otp in response for production
+        return ResponseEntity.ok("{\"status\":\"success\", \"message\":\"Recovery OTP sent to email\"}");
     }
 
     @PostMapping("/reset-password")

@@ -11,32 +11,32 @@ const MiniGames = {
     },
 
     showBriefing: function(title, text, onStart) {
-        const container = document.getElementById(this.targetContainer || 'module-content');
-        container.style.position = 'relative';
-        
         const overlay = document.createElement('div');
-        overlay.style.position = 'absolute';
+        overlay.id = 'mission-briefing-overlay';
+        overlay.style.position = 'fixed';
         overlay.style.top = '0';
         overlay.style.left = '0';
         overlay.style.width = '100%';
         overlay.style.height = '100%';
-        overlay.style.background = 'rgba(0,0,0,0.9)';
+        overlay.style.background = 'rgba(0,0,0,0.93)';
         overlay.style.display = 'flex';
         overlay.style.flexDirection = 'column';
         overlay.style.justifyContent = 'center';
         overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '50';
+        overlay.style.zIndex = '9999';
         overlay.style.padding = '20px';
         overlay.style.textAlign = 'center';
-        overlay.style.border = '4px solid var(--accent)';
+        overlay.style.boxSizing = 'border-box';
         
         overlay.innerHTML = `
-            <h2 style="color:var(--accent); text-shadow:2px 2px #000; font-size:16px;">MISSION BRIEFING</h2>
-            <h3 style="color:var(--sky); margin-bottom:15px; font-size:14px;">${title}</h3>
-            <p style="color:#fff; font-size:10px; line-height:1.6; max-width:300px; margin-bottom:20px;">${text}</p>
-            <button id="btn-start-mission" class="btn" style="background:var(--grass); color:#000; font-size:12px; padding:15px 30px; border:4px solid #fff;">START MISSION</button>
+            <div style="background:#1a1a1a; border:4px solid var(--accent); padding:30px; max-width:400px; width:90%; box-shadow:0 0 40px var(--accent);">
+                <h2 style="color:var(--accent); text-shadow:2px 2px #000; font-size:18px; margin-bottom:8px;">MISSION BRIEFING</h2>
+                <h3 style="color:var(--sky); margin-bottom:20px; font-size:13px;">${title}</h3>
+                <p style="color:#ddd; font-size:11px; line-height:1.8; margin-bottom:25px;">${text}</p>
+                <button id="btn-start-mission" class="btn" style="background:var(--grass); color:#000; font-size:13px; padding:12px 30px; border:4px solid #fff; width:100%;">▶ START MISSION</button>
+            </div>
         `;
-        container.appendChild(overlay);
+        document.body.appendChild(overlay);
         
         document.getElementById('btn-start-mission').onclick = () => {
             playSound && playSound('success');
