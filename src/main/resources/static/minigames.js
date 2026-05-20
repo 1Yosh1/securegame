@@ -1,14 +1,5 @@
 // minigames.js - Logic for Interactive Arcade Games
 
-const escapeHtml = (unsafe) => {
-    return (unsafe||'').toString()
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
-};
-
 const MiniGames = {
     activeInterval: null,
 
