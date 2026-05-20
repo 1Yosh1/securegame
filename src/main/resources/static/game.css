@@ -173,3 +173,101 @@ input:focus { border-color: var(--accent); }
 .level-node:hover .level-title-toast {
     opacity: 1;
 }
+
+/* CYBER-TERRARIA MAP STYLES */
+.map-container {
+    width: 100%;
+    height: 400px;
+    overflow-y: scroll;
+    position: relative;
+    /* Cyber-Terraria background: Pixelated dark dirt with faint neon green grid lines */
+    background-color: #1a1614;
+    background-image: 
+        linear-gradient(rgba(0, 255, 0, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 0, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 4px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    scrollbar-width: none;
+}
+.map-container::-webkit-scrollbar {
+    display: none;
+}
+
+.map-content {
+    position: relative;
+    width: 100%;
+    height: 2000px;
+}
+
+.path-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.level-node {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #00ff00, #008800);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #000;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 5;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.8), inset 0 -4px 0 rgba(0,0,0,0.2);
+    transition: transform 0.2s, filter 0.2s;
+}
+
+.level-node:hover {
+    transform: translate(-50%, -50%) scale(1.2);
+    filter: brightness(1.2);
+}
+
+.level-node.locked {
+    background: linear-gradient(135deg, #444, #222);
+    border-color: #666;
+    color: #888;
+    cursor: not-allowed;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.8), inset 0 -4px 0 rgba(0,0,0,0.2);
+}
+
+.level-node.locked:hover {
+    transform: translate(-50%, -50%);
+    filter: none;
+}
+
+/* Make the highest unlocked node pulse */
+.level-node:not(.locked):last-of-type {
+    animation: nodePulse 1.5s infinite;
+}
+
+@keyframes nodePulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7), inset 0 -4px 0 rgba(0,0,0,0.2); }
+    70% { box-shadow: 0 0 0 15px rgba(0, 255, 0, 0), inset 0 -4px 0 rgba(0,0,0,0.2); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0), inset 0 -4px 0 rgba(0,0,0,0.2); }
+}
+
+.level-title-toast {
+    position: absolute;
+    bottom: -25px;
+    white-space: nowrap;
+    background: rgba(0,0,0,0.8);
+    color: var(--grass);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    border: 1px solid var(--grass);
+    pointer-events: none;
+}

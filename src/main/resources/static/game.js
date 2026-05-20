@@ -682,11 +682,21 @@ function showCampaignLevels() {
     svg.setAttribute("preserveAspectRatio", "none");
     
     const path = document.createElementNS(svgNS, "path");
-    path.setAttribute("stroke", "#444");
-    path.setAttribute("stroke-width", "4");
-    path.setAttribute("stroke-dasharray", "10,10");
+    path.setAttribute("stroke", "var(--grass)"); // Neon green path
+    path.setAttribute("stroke-width", "6");
+    path.setAttribute("stroke-dasharray", "15,10");
     path.setAttribute("fill", "none");
     path.setAttribute("vector-effect", "non-scaling-stroke");
+    // Add CSS animation for marching ants effect
+    path.style.animation = "dashAnim 30s linear infinite";
+
+    // Add keyframes dynamically if not present
+    if (!document.getElementById('dash-anim-style')) {
+        const style = document.createElement('style');
+        style.id = 'dash-anim-style';
+        style.innerHTML = `@keyframes dashAnim { to { stroke-dashoffset: -1000; } }`;
+        document.head.appendChild(style);
+    }
     
     let pathD = "";
     const startY = 1900; 
@@ -857,6 +867,9 @@ function renderCampaignQuestion() {
     else if (lvl.type === 'ransomware') MiniGames.startRansomware(diff, winCampaign, loseCampaign);
     else if (lvl.type === 'privesc') MiniGames.startPrivEsc(diff, winCampaign, loseCampaign);
     else if (lvl.type === 'crypto_decode') MiniGames.startCryptoDecoder(diff, winCampaign, loseCampaign);
+    else if (lvl.type === 'rbac') MiniGames.startRBAC(diff, winCampaign, loseCampaign);
+    else if (lvl.type === 'phishing_swipe') MiniGames.startPhishingSwipe(diff, winCampaign, loseCampaign);
+    else if (lvl.type === 'whack_a_mole') MiniGames.startWhackAMole(diff, winCampaign, loseCampaign);
 }
 
 async function clearCampaignLevelReward() {
