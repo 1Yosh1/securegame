@@ -28,7 +28,7 @@ async def main():
         # Fill inputs and test Register
         await page.fill('#reg-name', 'Test User')
         await page.fill('#reg-email', 'test2@example.com')
-        await page.fill('#reg-password', 'password123')
+        await page.fill('#reg-password', 'P@ssw0rd1234567890!')
         await page.click('#form-register button:has-text("Create Account")')
         await asyncio.sleep(2)
         
