@@ -329,6 +329,8 @@ async function selectRole(role) {
         const formData = new URLSearchParams();
         formData.append("email", player.email);
         formData.append("role", role.toUpperCase());
+        const token = getDeviceToken(player.email);
+        if(token) formData.append("deviceToken", token);
         const res = await fetch('/api/auth/update-role', { method: 'POST', body: formData, headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
         if(res.ok) {
             const data = await res.json();
@@ -688,6 +690,8 @@ async function addXp(amt) {
         formData.append("email", player.email);
         formData.append("xp", player.xp);
         formData.append("level", player.level);
+        const token = getDeviceToken(player.email);
+        if(token) formData.append("deviceToken", token);
         await fetch('/api/auth/progress', { method: 'POST', body: formData, headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
     } catch(e) { console.error("Error syncing progress:", e); }
 }
