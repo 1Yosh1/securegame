@@ -5,7 +5,10 @@ import com.unime.securegame.repository.CoachFeedbackRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Category C — Generates top-k coach feedback tips for a risk assessment result.
@@ -35,16 +38,34 @@ public class CoachFeedbackGenerator {
         List<String> tips = new ArrayList<>();
         int limit = Math.min(k, topFactorNames.length);
 
-        for (int i = 0; i < limit; i++) {
-            List<CoachFeedback> matches = coachRepo.findByRiskFactorAndSeverityBand(
-                    topFactorNames[i], severityBand);
+        if (limit == 0) {
+            return tips;
+        }
 
-            if (!matches.isEmpty()) {
-                tips.add(matches.get(0).getTip());
-            } else {
-                // Fall back to any severity tip for this factor
-                List<CoachFeedback> any = coachRepo.findByRiskFactor(topFactorNames[i]);
-                if (!any.isEmpty()) tips.add(any.get(0).getTip());
+        // Fetch all potential feedback for the relevant factors in one query to avoid N+1
+        List<String> factorsToQuery = Arrays.asList(topFactorNames).subList(0, limit);
+        List<CoachFeedback> allFeedbacks = coachRepo.findByRiskFactorIn(factorsToQuery);
+
+        // Group the fetched feedback by risk factor
+        Map<String, List<CoachFeedback>> feedbackByFactor = allFeedbacks.stream()
+                .collect(Collectors.groupingBy(CoachFeedback::getRiskFactor));
+
+        for (int i = 0; i < limit; i++) {
+            String factor = topFactorNames[i];
+            List<CoachFeedback> factorFeedbacks = feedbackByFactor.getOrDefault(factor, new ArrayList<>());
+
+            if (!factorFeedbacks.isEmpty()) {
+                // Try to find a match for the specific severity band
+                List<CoachFeedback> matches = factorFeedbacks.stream()
+                        .filter(f -> severityBand.equals(f.getSeverityBand()))
+                        .collect(Collectors.toList());
+
+                if (!matches.isEmpty()) {
+                    tips.add(matches.get(0).getTip());
+                } else {
+                    // Fall back to any severity tip for this factor
+                    tips.add(factorFeedbacks.get(0).getTip());
+                }
             }
         }
         return tips;
