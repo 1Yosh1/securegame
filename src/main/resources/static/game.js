@@ -418,7 +418,7 @@ async function joinRoom() {
             }
         });
         showToast('Connected to classroom ' + code);
-    } catch(e) { showToast('Room not found'); }
+    } catch(e) { console.error('Error joining room:', e); showToast('Room not found'); }
 }
 
 // -- GAME PLUGIN REGISTRY --
