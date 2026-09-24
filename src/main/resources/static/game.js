@@ -200,21 +200,20 @@ async function registerUser() {
             const data = await res.json();
             showToast("Registration failed: " + data.message);
         }
-    } catch(e) { 
-        document.getElementById('form-register').style.opacity = '1';
+    } catch(e) { console.error(e); document.getElementById('form-register').style.opacity = '1';
         showToast("Backend not responding."); 
     }
 }
 
 // -- Device token helpers --
 function getDeviceToken(email) {
-    try { return localStorage.getItem('sg_tok_' + btoa(email)); } catch(e) { return null; }
+    try { return localStorage.getItem('sg_tok_' + btoa(email)); } catch(e) { /* ignore */ return null; }
 }
 function setDeviceToken(email, token) {
-    try { localStorage.setItem('sg_tok_' + btoa(email), token); } catch(e) {}
+    try { localStorage.setItem('sg_tok_' + btoa(email), token); } catch(e) { /* ignore */ }
 }
 function clearDeviceToken(email) {
-    try { localStorage.removeItem('sg_tok_' + btoa(email)); } catch(e) {}
+    try { localStorage.removeItem('sg_tok_' + btoa(email)); } catch(e) { /* ignore */ }
 }
 
 async function requestLogin() {
@@ -245,8 +244,7 @@ async function requestLogin() {
                 clearDeviceToken(email);
                 showToast("Session expired. Sending OTP to verify identity.");
             }
-        } catch(e) {
-            document.getElementById('form-login').style.opacity = '1';
+        } catch(e) { console.error(e); document.getElementById('form-login').style.opacity = '1';
         }
     }
     
@@ -271,8 +269,7 @@ async function requestLogin() {
             const data = await res.json();
             showToast("Login failed: " + data.message);
         }
-    } catch (e) { 
-        document.getElementById('form-login').style.opacity = '1';
+    } catch(e) { console.error(e); document.getElementById('form-login').style.opacity = '1';
         showToast("Backend not responding."); 
     }
 }
@@ -294,7 +291,7 @@ async function verifyOTP() {
             }
             finishLogin(data);
         } else { showToast("Invalid OTP. Please try again."); }
-    } catch(e) { showToast("Error verifying OTP."); }
+    } catch(e) { console.error("Error verifying OTP:", e); showToast("Error verifying OTP."); }
 }
 
 function finishLogin(data) {
@@ -343,9 +340,7 @@ async function selectRole(role) {
         } else {
             showToast("Failed to update role on server.");
         }
-    } catch(e) {
-        showToast("Error updating role.");
-    }
+    } catch(e) { console.error(e); showToast("Error updating role."); }
 }
 
 function selectFreePlayMode(mode) {
@@ -418,7 +413,7 @@ async function joinRoom() {
             }
         });
         showToast('Connected to classroom ' + code);
-    } catch(e) { showToast('Room not found'); }
+    } catch(e) { console.error(e); showToast('Room not found'); }
 }
 
 // -- GAME PLUGIN REGISTRY --
@@ -775,9 +770,7 @@ async function requestRecoveryOtp() {
             const data = await res.json();
             showToast("Failed: " + data.message);
         }
-    } catch(e) {
-        showToast("Error requesting recovery code.");
-    }
+    } catch(e) { console.error(e); showToast("Error requesting recovery code."); }
 }
 
 async function submitPasswordReset() {
@@ -801,9 +794,7 @@ async function submitPasswordReset() {
             const data = await res.json();
             showToast("Reset failed: " + data.message);
         }
-    } catch(e) {
-        showToast("Error resetting password.");
-    }
+    } catch(e) { console.error(e); showToast("Error resetting password."); }
 }
 
 // -- CAMPAIGN MODE --
