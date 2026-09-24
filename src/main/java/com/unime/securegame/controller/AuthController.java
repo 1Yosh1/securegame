@@ -88,7 +88,7 @@ public class AuthController {
         }
 
         // Generate and send OTP — do NOT include otp in response (was a dev shortcut)
-        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        String otp = String.format("%06d", new java.security.SecureRandom().nextInt(1000000));
         otps.put(email, otp);
         emailService.sendOtpEmail(email, otp);
         return ResponseEntity.ok("{\"status\":\"otp_sent\", \"role\":\"" + user.getRole() + "\"}");
@@ -152,7 +152,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"No account registered with this email\"}");
         }
 
-        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        String otp = String.format("%06d", new java.security.SecureRandom().nextInt(1000000));
         recoveryOtps.put(email.trim(), otp);
 
         emailService.sendOtpEmail(email.trim(), otp);
