@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Seeds the database with initial model weights and coach feedback tips on startup.
@@ -30,9 +31,11 @@ public class DataSeeder {
             if (weightRepo.count() == 0) {
                 String[] names = RuleBasedLayer.FEATURE_NAMES;
                 double[] defaults = {0.15, 0.25, 0.15, 0.20, 0.15, 0.10};
+                List<ModelWeight> weightsToSave = new ArrayList<>();
                 for (int i = 0; i < names.length; i++) {
-                    weightRepo.save(new ModelWeight(names[i], i, defaults[i]));
+                    weightsToSave.add(new ModelWeight(names[i], i, defaults[i]));
                 }
+                weightRepo.saveAll(weightsToSave);
                 // Train LR model on synthetic data immediately
                 var samples = dataGen.generate(3000, 42L);
                 lrModel.train(samples, 300, 0.1);
