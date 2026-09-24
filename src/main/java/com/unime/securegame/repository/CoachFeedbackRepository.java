@@ -9,4 +9,5 @@ import java.util.List;
 public interface CoachFeedbackRepository extends JpaRepository<CoachFeedback, Long> {
     List<CoachFeedback> findByRiskFactorAndSeverityBand(String riskFactor, String severityBand);
     List<CoachFeedback> findByRiskFactor(String riskFactor);
+    List<CoachFeedback> findByRiskFactorIn(List<String> riskFactors);
 }
