@@ -31,8 +31,8 @@ try {
 document.getElementById('reg-name').value = 'Test User';
 document.getElementById('reg-email').value = 'test@example.com';
 document.getElementById('reg-password').value = 'password123';
-document.getElementById('reg-role').value = 'STUDENT';
-document.getElementById('reg-classroom').value = '1234';
+
+
 
 window.registerUser().then(() => {
     console.log("registerUser completed. Toast:", document.getElementById('toast').textContent);
