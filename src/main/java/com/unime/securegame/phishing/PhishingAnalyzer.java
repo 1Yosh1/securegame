@@ -61,9 +61,17 @@ public class PhishingAnalyzer {
         double score = 0.0;
 
         String url = rawUrl.trim();
-        String host = extractHost(url);
-        String path = extractPath(url);
-        String query = extractQuery(url);
+        String host = null;
+        String path = null;
+        String query = null;
+        try {
+            URI uri = URI.create(url);
+            host = uri.getHost();
+            path = uri.getPath();
+            query = uri.getQuery();
+        } catch (Exception e) {
+            // Proceed with null values
+        }
 
         // Heuristic 1: HTTP (non-HTTPS)
         if (url.startsWith("http://")) {
@@ -148,30 +156,6 @@ public class PhishingAnalyzer {
         String band = toBand(score);
 
         return new PhishingReport(rawUrl, score, band, indicators);
-    }
-
-    private String extractHost(String url) {
-        try {
-            return URI.create(url).getHost();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private String extractPath(String url) {
-        try {
-            return URI.create(url).getPath();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private String extractQuery(String url) {
-        try {
-            return URI.create(url).getQuery();
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private String toBand(double score) {
