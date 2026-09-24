@@ -117,17 +117,27 @@ public class LogisticRegressionModel {
 
     private void persistWeights(double[] weights, double bias) {
         String[] names = RuleBasedLayer.FEATURE_NAMES;
+        List<ModelWeight> allExisting = weightRepo.findAll();
+
+        java.util.Map<String, ModelWeight> existingMap = new java.util.HashMap<>();
+        for (ModelWeight mw : allExisting) {
+            existingMap.put(mw.getFeatureName(), mw);
+        }
+
+        List<ModelWeight> toSave = new java.util.ArrayList<>(weights.length + 1);
+
         for (int i = 0; i < weights.length; i++) {
             final int idx = i;
-            ModelWeight mw = weightRepo.findByFeatureName(names[i])
-                    .orElseGet(() -> new ModelWeight(names[idx], idx, 0.0));
+            ModelWeight mw = existingMap.getOrDefault(names[i], new ModelWeight(names[idx], idx, 0.0));
             mw.setWeight(weights[i]);
-            weightRepo.save(mw);
+            toSave.add(mw);
         }
-        ModelWeight biasMw = weightRepo.findByFeatureName(BIAS_NAME)
-                .orElseGet(() -> new ModelWeight(BIAS_NAME, -1, 0.0));
+
+        ModelWeight biasMw = existingMap.getOrDefault(BIAS_NAME, new ModelWeight(BIAS_NAME, -1, 0.0));
         biasMw.setWeight(bias);
-        weightRepo.save(biasMw);
+        toSave.add(biasMw);
+
+        weightRepo.saveAll(toSave);
     }
 
     private double dot(double[] a, double[] b) {
