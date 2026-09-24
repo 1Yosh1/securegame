@@ -16,6 +16,8 @@ const phishingData = [
     { url: "https://secure.bankofamerica.com.login.userid.verify.com", safe: false, reason: "Excessive subdomains masking the real domain verify.com." }
 ];
 let phishingIndex = 0;
+let phishingTargetCount = 0;
+let phishingOnComplete = null;
 
 const cryptoData = [
     { q: "Which of the following is irreversible and used for storing passwords?", opts: ["AES-256", "RSA", "SHA-256 Hash", "Base64 Encoding"], ans: 2, expl: "A hash is a mathematical one-way function. Encryption like AES or RSA is two-way (can be decrypted). Base64 is just an encoding, not security." },
@@ -429,7 +431,7 @@ async function joinRoom() {
 const GameRegistry = {
     'mfa':           (_d, _w, _l) => renderMfa(),
     'password':      (_d, _w, _l) => renderPassword(),
-    'phishing':      (_d, _w, _l) => { phishingIndex = 0; renderPhishing(); },
+    'phishing':      (_d, _w, _l) => { phishingIndex = 0; phishingTargetCount = 0; phishingOnComplete = null; renderPhishing(); },
     'crypto':        (_d, _w, _l) => { cryptoIndex = 0; renderCrypto(); },
     'matching':      (_d, _w, _l) => { matchesFound = 0; renderMatching(); },
     'firewall':      (d, w, l)    => MiniGames.startFirewall(d, w, l),
@@ -535,9 +537,21 @@ function checkEntropy() {
 }
 
 // 3. Phishing Rapid Fire
-function renderPhishing() {
-    if (phishingIndex >= phishingData.length) {
-        document.getElementById('module-content').innerHTML = `<h3 style="text-align:center; color:var(--grass)">All Threats Cleared!</h3>`;
+function renderPhishing(targetCount = 0, onComplete = null) {
+    if (targetCount > 0) phishingTargetCount = targetCount;
+    if (onComplete) phishingOnComplete = onComplete;
+
+    const limit = phishingTargetCount > 0 ? phishingTargetCount : phishingData.length;
+
+    if (phishingIndex >= limit) {
+        if (phishingOnComplete) {
+            const cb = phishingOnComplete;
+            phishingTargetCount = 0;
+            phishingOnComplete = null;
+            cb();
+        } else {
+            document.getElementById('module-content').innerHTML = `<h3 style="text-align:center; color:var(--grass)">All Threats Cleared!</h3>`;
+        }
         return;
     }
     const target = phishingData[phishingIndex];
@@ -948,19 +962,11 @@ function renderCampaignQuestion() {
         document.getElementById('screen-campaign-game').classList.remove('active');
         phishingIndex = 0; 
         
-        // Temporarily hack the phishing finish logic
-        const oldRender = window.renderPhishing;
-        window.renderPhishing = function() {
-            if (phishingIndex >= 5) { // Only do 5 per campaign level
-                document.getElementById('screen-module').classList.remove('active');
-                document.getElementById('screen-campaign-game').classList.add('active');
-                window.renderPhishing = oldRender;
-                winCampaign();
-                return;
-            }
-            oldRender();
-        };
-        renderPhishing();
+        renderPhishing(5, () => {
+            document.getElementById('screen-module').classList.remove('active');
+            document.getElementById('screen-campaign-game').classList.add('active');
+            winCampaign();
+        });
     } 
     else if (lvl.type === 'password') {
         document.getElementById('screen-module').classList.add('active');
