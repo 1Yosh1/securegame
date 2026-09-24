@@ -5,8 +5,9 @@ import com.unime.securegame.repository.UserRepository;
 import com.unime.securegame.service.EmailService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
-import java.security.MessageDigest;
-import java.nio.charset.StandardCharsets;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import java.util.Base64;
 
 import java.util.*;
@@ -20,6 +21,7 @@ public class AuthController {
     private final Map<String, String> otps = new java.util.concurrent.ConcurrentHashMap<>();
     // email -> device token mapping (in production, use a DB table with expiry)
     private final Map<String, String> deviceTokens = new java.util.concurrent.ConcurrentHashMap<>();
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private String generateToken() {
         byte[] bytes = new byte[32];
@@ -33,13 +35,7 @@ public class AuthController {
     }
 
     private String hashPassword(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to hash password", e);
-        }
+        return passwordEncoder.encode(password);
     }
 
     @PostMapping("/register")
@@ -83,7 +79,7 @@ public class AuthController {
         }
         
         UserEntity user = userOpt.get();
-        if (!user.getPassword().equals(hashPassword(password))) {
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"Invalid credentials\"}");
         }
 
@@ -103,7 +99,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"Invalid credentials\"}");
         }
         UserEntity user = userOpt.get();
-        if (!user.getPassword().equals(hashPassword(password))) {
+        if (!passwordEncoder.matches(password, user.getPassword())) {
             return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"Invalid credentials\"}");
         }
         String savedToken = deviceTokens.get(email);
