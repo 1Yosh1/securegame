@@ -5,7 +5,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.stereotype.Controller;
 
-import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,8 +31,6 @@ public class ClassroomWsController {
     // Intentionally NOT persisted — classroom sessions are ephemeral
     private final Map<String, Map<String, Object>> rooms = new ConcurrentHashMap<>();
 
-    private final SecureRandom secureRandom = new SecureRandom();
-
     public ClassroomWsController(SimpMessagingTemplate broker) {
         this.broker = broker;
     }
@@ -43,7 +40,7 @@ public class ClassroomWsController {
     @PostMapping("/api/room/create")
     @ResponseBody
     public Map<String, Object> createRoom(@RequestParam String teacher) {
-        String code = String.format("%04d", secureRandom.nextInt(10000));
+        String code = String.format("%04d", new Random().nextInt(10000));
         Map<String, Object> room = new HashMap<>();
         room.put("code", code);
         room.put("teacher", teacher);
