@@ -112,4 +112,15 @@ class RiskScoringTest {
         long rows = csv.lines().count() - 1; // subtract header
         assertEquals(n, rows, "CSV should have exactly " + n + " data rows");
     }
+
+    @Test
+    void train_performance_benchmark() {
+        var samples = dataGen.generate(100, 42L);
+        long start = System.currentTimeMillis();
+        for (int i = 0; i < 50; i++) {
+            lrModel.train(samples, 1, 0.1);
+        }
+        long duration = System.currentTimeMillis() - start;
+        System.out.println("Benchmark train() 50 times took: " + duration + "ms");
+    }
 }
