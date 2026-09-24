@@ -2,16 +2,18 @@ package com.unime.securegame.controller;
 
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
+import java.security.SecureRandom;
 
 @RestController
 @RequestMapping("/api/multiplayer")
 public class RoomController {
     // In-memory data store for live multiplayer classroom sessions
     private Map<String, Map<String, Object>> rooms = new HashMap<>();
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     @PostMapping("/create")
     public Map<String, Object> createRoom(@RequestParam String teacher) {
-        String code = String.format("%04d", new Random().nextInt(10000));
+        String code = String.format("%04d", secureRandom.nextInt(10000));
         Map<String, Object> room = new HashMap<>();
         room.put("code", code);
         room.put("teacher", teacher);
