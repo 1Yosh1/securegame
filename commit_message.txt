@@ -1,0 +1,5 @@
+🧪 [testing improvement] Add tests for URI parsing exceptions in PhishingAnalyzer
+
+🎯 What: Added tests for the error paths of `extractHost`, `extractPath`, and `extractQuery` in `PhishingAnalyzer` to handle scenarios where URI parsing throws exceptions (e.g., passing invalid URL strings with illegal characters).
+📊 Coverage: Tests now cover scenarios where `URI.create` encounters an invalid URL, causing a `URISyntaxException`.
+✨ Result: `PhishingAnalyzerTest` now properly covers these edge cases, increasing test coverage and code reliability by ensuring the methods correctly fall back to returning `null` upon failure.

@@ -3,6 +3,7 @@ package com.unime.securegame.phishing;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -107,5 +108,28 @@ class PhishingAnalyzerTest {
         PhishingAnalyzer.PhishingReport report = analyzer.analyze(worst);
         assertTrue(report.score() >= 0.0 && report.score() <= 1.0,
                 "Score must be in [0,1]: " + report.score());
+    }
+
+    @Test
+    void invalidUrlParsing_returnsNull() throws Exception {
+        String invalidUrl = "http://invalid url^";
+
+        Method hostMethod = PhishingAnalyzer.class.getDeclaredMethod(
+                "extractHost", String.class);
+        hostMethod.setAccessible(true);
+        assertNull(hostMethod.invoke(analyzer, invalidUrl),
+                "extractHost should return null on invalid URL");
+
+        Method pathMethod = PhishingAnalyzer.class.getDeclaredMethod(
+                "extractPath", String.class);
+        pathMethod.setAccessible(true);
+        assertNull(pathMethod.invoke(analyzer, invalidUrl),
+                "extractPath should return null on invalid URL");
+
+        Method queryMethod = PhishingAnalyzer.class.getDeclaredMethod(
+                "extractQuery", String.class);
+        queryMethod.setAccessible(true);
+        assertNull(queryMethod.invoke(analyzer, invalidUrl),
+                "extractQuery should return null on invalid URL");
     }
 }
