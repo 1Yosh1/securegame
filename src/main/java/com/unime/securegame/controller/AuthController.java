@@ -64,7 +64,11 @@ public class AuthController {
     }
 
     @PostMapping("/update-role")
-    public ResponseEntity<?> updateRole(@RequestParam String email, @RequestParam String role) {
+    public ResponseEntity<?> updateRole(@RequestParam String email, @RequestParam String role, @RequestParam String deviceToken) {
+        String savedToken = deviceTokens.get(email.trim());
+        if (savedToken == null || !savedToken.equals(deviceToken)) {
+            return ResponseEntity.status(401).body("{\"status\":\"error\", \"message\":\"Unauthorized: Invalid device token\"}");
+        }
         Optional<UserEntity> userOpt = userRepository.findByEmail(email.trim());
         if (userOpt.isPresent()) {
             UserEntity user = userOpt.get();
@@ -131,7 +135,11 @@ public class AuthController {
     }
 
     @PostMapping("/progress")
-    public ResponseEntity<?> updateProgress(@RequestParam String email, @RequestParam int xp, @RequestParam int level) {
+    public ResponseEntity<?> updateProgress(@RequestParam String email, @RequestParam int xp, @RequestParam int level, @RequestParam String deviceToken) {
+        String savedToken = deviceTokens.get(email.trim());
+        if (savedToken == null || !savedToken.equals(deviceToken)) {
+            return ResponseEntity.status(401).body("{\"status\":\"error\", \"message\":\"Unauthorized: Invalid device token\"}");
+        }
         Optional<UserEntity> userOpt = userRepository.findByEmail(email.trim());
         if (userOpt.isPresent()) {
             UserEntity user = userOpt.get();
