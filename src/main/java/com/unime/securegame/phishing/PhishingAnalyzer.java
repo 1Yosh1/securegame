@@ -65,89 +65,119 @@ public class PhishingAnalyzer {
         String path = extractPath(url);
         String query = extractQuery(url);
 
-        // Heuristic 1: HTTP (non-HTTPS)
-        if (url.startsWith("http://")) {
-            score += 0.10;
-            indicators.add("Uses unencrypted HTTP (no HTTPS)");
-        }
-
-        // Heuristic 2: IP as hostname
-        if (host != null && IP_PATTERN.matcher(host).matches()) {
-            score += 0.30;
-            indicators.add("Uses raw IP address instead of domain name");
-        }
-
-        // Heuristic 3: Domain length anomaly (> 30 chars = suspicious)
-        if (host != null && host.length() > 30) {
-            score += 0.15;
-            indicators.add("Unusually long domain name (" + host.length() + " chars)");
-        }
-
-        // Heuristic 4: Punycode / homograph attack
-        if (host != null && host.contains("xn--")) {
-            score += 0.20;
-            indicators.add("Punycode encoding detected (possible homograph attack)");
-        }
-
-        // Heuristic 5: Suspicious TLD
-        if (host != null) {
-            String lowerHost = host.toLowerCase();
-            for (String tld : SUSPICIOUS_TLDS) {
-                if (lowerHost.endsWith(tld)) {
-                    score += 0.15;
-                    indicators.add("Suspicious top-level domain: " + tld);
-                    break;
-                }
-            }
-        }
-
-        // Heuristic 6: Brand spoofing keywords in URL
-        String lowerUrl = url.toLowerCase();
-        for (String brand : BRAND_KEYWORDS) {
-            if (lowerUrl.contains(brand)) {
-                score += 0.20;
-                indicators.add("Potential brand spoofing keyword detected: '" + brand + "'");
-                break; // one detection is enough
-            }
-        }
-
-        // Heuristic 7: Excessive hyphens in domain (> 2)
-        if (host != null) {
-            long hyphens = host.chars().filter(c -> c == '-').count();
-            if (hyphens > 2) {
-                score += 0.10;
-                indicators.add("Excessive hyphens in domain (" + hyphens + ")");
-            }
-        }
-
-        // Heuristic 8: URL path depth anomaly (> 5 segments)
-        if (path != null) {
-            long depth = path.chars().filter(c -> c == '/').count();
-            if (depth > 5) {
-                score += 0.08;
-                indicators.add("Deep URL path (" + depth + " segments) may indicate redirect chain");
-            }
-        }
-
-        // Heuristic 9: Subdomain count anomaly (> 3 dots in host)
-        if (host != null) {
-            long dots = host.chars().filter(c -> c == '.').count();
-            if (dots > 3) {
-                score += 0.12;
-                indicators.add("Excessive subdomains (" + dots + " levels) — common in phishing");
-            }
-        }
-
-        // Heuristic 10: Query parameter length anomaly (> 200 chars)
-        if (query != null && query.length() > 200) {
-            score += 0.10;
-            indicators.add("Very long query string (" + query.length() + " chars) — may hide malicious payload");
-        }
+        score += checkHttp(url, indicators);
+        score += checkIpAsHost(host, indicators);
+        score += checkDomainLength(host, indicators);
+        score += checkPunycode(host, indicators);
+        score += checkSuspiciousTld(host, indicators);
+        score += checkBrandSpoofing(url, indicators);
+        score += checkExcessiveHyphens(host, indicators);
+        score += checkPathDepth(path, indicators);
+        score += checkSubdomainCount(host, indicators);
+        score += checkQueryLength(query, indicators);
 
         score = Math.min(1.0, score);
         String band = toBand(score);
 
         return new PhishingReport(rawUrl, score, band, indicators);
+    }
+
+
+    private double checkHttp(String url, List<String> indicators) {
+        if (url.startsWith("http://")) {
+            indicators.add("Uses unencrypted HTTP (no HTTPS)");
+            return 0.10;
+        }
+        return 0.0;
+    }
+
+    private double checkIpAsHost(String host, List<String> indicators) {
+        if (host != null && IP_PATTERN.matcher(host).matches()) {
+            indicators.add("Uses raw IP address instead of domain name");
+            return 0.30;
+        }
+        return 0.0;
+    }
+
+    private double checkDomainLength(String host, List<String> indicators) {
+        if (host != null && host.length() > 30) {
+            indicators.add("Unusually long domain name (" + host.length() + " chars)");
+            return 0.15;
+        }
+        return 0.0;
+    }
+
+    private double checkPunycode(String host, List<String> indicators) {
+        if (host != null && host.contains("xn--")) {
+            indicators.add("Punycode encoding detected (possible homograph attack)");
+            return 0.20;
+        }
+        return 0.0;
+    }
+
+    private double checkSuspiciousTld(String host, List<String> indicators) {
+        if (host != null) {
+            String lowerHost = host.toLowerCase();
+            for (String tld : SUSPICIOUS_TLDS) {
+                if (lowerHost.endsWith(tld)) {
+                    indicators.add("Suspicious top-level domain: " + tld);
+                    return 0.15;
+                }
+            }
+        }
+        return 0.0;
+    }
+
+    private double checkBrandSpoofing(String url, List<String> indicators) {
+        String lowerUrl = url.toLowerCase();
+        for (String brand : BRAND_KEYWORDS) {
+            if (lowerUrl.contains(brand)) {
+                indicators.add("Potential brand spoofing keyword detected: '" + brand + "'");
+                return 0.20;
+            }
+        }
+        return 0.0;
+    }
+
+    private double checkExcessiveHyphens(String host, List<String> indicators) {
+        if (host != null) {
+            long hyphens = host.chars().filter(c -> c == '-').count();
+            if (hyphens > 2) {
+                indicators.add("Excessive hyphens in domain (" + hyphens + ")");
+                return 0.10;
+            }
+        }
+        return 0.0;
+    }
+
+    private double checkPathDepth(String path, List<String> indicators) {
+        if (path != null) {
+            long depth = path.chars().filter(c -> c == '/').count();
+            if (depth > 5) {
+                indicators.add("Deep URL path (" + depth + " segments) may indicate redirect chain");
+                return 0.08;
+            }
+        }
+        return 0.0;
+    }
+
+    private double checkSubdomainCount(String host, List<String> indicators) {
+        if (host != null) {
+            long dots = host.chars().filter(c -> c == '.').count();
+            if (dots > 3) {
+                indicators.add("Excessive subdomains (" + dots + " levels) — common in phishing");
+                return 0.12;
+            }
+        }
+        return 0.0;
+    }
+
+    private double checkQueryLength(String query, List<String> indicators) {
+        if (query != null && query.length() > 200) {
+            indicators.add("Very long query string (" + query.length() + " chars) — may hide malicious payload");
+            return 0.10;
+        }
+        return 0.0;
     }
 
     private String extractHost(String url) {
