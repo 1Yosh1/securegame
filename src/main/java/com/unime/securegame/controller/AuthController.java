@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
+import java.security.SecureRandom;
 import java.util.*;
 
 @RestController
@@ -20,10 +21,11 @@ public class AuthController {
     private final Map<String, String> otps = new java.util.concurrent.ConcurrentHashMap<>();
     // email -> device token mapping (in production, use a DB table with expiry)
     private final Map<String, String> deviceTokens = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private String generateToken() {
         byte[] bytes = new byte[32];
-        new java.security.SecureRandom().nextBytes(bytes);
+        SECURE_RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
@@ -88,7 +90,7 @@ public class AuthController {
         }
 
         // Generate and send OTP — do NOT include otp in response (was a dev shortcut)
-        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
         otps.put(email, otp);
         emailService.sendOtpEmail(email, otp);
         return ResponseEntity.ok("{\"status\":\"otp_sent\", \"role\":\"" + user.getRole() + "\"}");
@@ -152,7 +154,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body("{\"status\":\"error\", \"message\":\"No account registered with this email\"}");
         }
 
-        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1000000));
         recoveryOtps.put(email.trim(), otp);
 
         emailService.sendOtpEmail(email.trim(), otp);
