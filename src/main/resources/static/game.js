@@ -688,6 +688,12 @@ async function addXp(amt) {
         formData.append("email", player.email);
         formData.append("xp", player.xp);
         formData.append("level", player.level);
+        const deviceToken = getDeviceToken(player.email);
+        if (deviceToken) {
+            formData.append("deviceToken", deviceToken);
+        } else {
+            formData.append("deviceToken", ""); // or throw an error, but let's append empty to hit 401
+        }
         await fetch('/api/auth/progress', { method: 'POST', body: formData, headers: {'Content-Type': 'application/x-www-form-urlencoded'} });
     } catch(e) { console.error("Error syncing progress:", e); }
 }
