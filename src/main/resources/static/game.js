@@ -211,10 +211,10 @@ function getDeviceToken(email) {
     try { return localStorage.getItem('sg_tok_' + btoa(email)); } catch(e) { return null; }
 }
 function setDeviceToken(email, token) {
-    try { localStorage.setItem('sg_tok_' + btoa(email), token); } catch(e) {}
+    try { localStorage.setItem('sg_tok_' + btoa(email), token); } catch(e) { console.error("Error setting device token:", e); }
 }
 function clearDeviceToken(email) {
-    try { localStorage.removeItem('sg_tok_' + btoa(email)); } catch(e) {}
+    try { localStorage.removeItem('sg_tok_' + btoa(email)); } catch(e) { console.error("Error clearing device token:", e); }
 }
 
 async function requestLogin() {
