@@ -24,14 +24,14 @@ import java.util.List;
 @Component
 public class RuleBasedLayer {
 
-    /** Feature names in the same order as RiskFeature.toVector() */
+    /** Feature names in the same order as the effective risk contribution vector. */
     public static final String[] FEATURE_NAMES = {
-            "passwordEntropy",   // index 0 (inverted: low entropy = high risk)
+            "passwordEntropy",   // index 0 (low entropy = high risk; vector is risk-oriented)
             "geoDistanceKm",     // index 1
             "timeDeviationHours",// index 2
             "uaSimilarity",      // index 3 (inverted in toVector: high diff = high risk)
             "failStreak",        // index 4
-            "mfaType"            // index 5 (inverted in toVector: no MFA = high risk)
+            "mfaType"            // index 5 (no MFA = high risk)
     };
 
     /** Default weights used when DB has no entries (bootstrap / first run) */
@@ -71,14 +71,17 @@ public class RuleBasedLayer {
     /** Load weights from DB, fall back to defaults if not seeded */
     private double[] loadWeights() {
         List<ModelWeight> dbWeights = weightRepo.findAllByOrderByFeatureIndexAsc();
-        if (dbWeights.size() < FEATURE_NAMES.length) {
+        if (dbWeights.stream().filter(weight -> weight.getFeatureIndex() >= 0
+                && weight.getFeatureIndex() < FEATURE_NAMES.length).count() < FEATURE_NAMES.length) {
             return DEFAULT_WEIGHTS;
         }
         double[] w = new double[FEATURE_NAMES.length];
         for (ModelWeight mw : dbWeights) {
             int idx = mw.getFeatureIndex();
             if (idx >= 0 && idx < w.length) {
-                w[idx] = mw.getWeight();
+                // Rule contributions encode feature importance, not coefficient direction.
+                // The shared LR rows may be negative (or positive after risk-vector migration).
+                w[idx] = Double.isFinite(mw.getWeight()) ? Math.abs(mw.getWeight()) : 0.0;
             }
         }
         return w;

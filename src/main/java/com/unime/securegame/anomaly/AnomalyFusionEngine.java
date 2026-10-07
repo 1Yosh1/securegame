@@ -24,27 +24,36 @@ public class AnomalyFusionEngine {
 
     private final List<AnomalySignal> signals;
 
-    public AnomalyFusionEngine(TimeOfDaySignal timeSignal,
-                                GeoDistanceSignal geoSignal,
-                                UserAgentSignal uaSignal,
-                                FailedAttemptSignal failSignal,
-                                DeviceTrustSignal deviceSignal) {
-        this.signals = List.of(timeSignal, geoSignal, uaSignal, failSignal, deviceSignal);
+    public AnomalyFusionEngine(List<AnomalySignal> signals) {
+        if (signals == null || signals.isEmpty()) {
+            throw new IllegalArgumentException("At least one anomaly signal must be registered");
+        }
+        this.signals = signals.stream()
+                .sorted(Comparator.comparing(AnomalySignal::name))
+                .toList();
     }
 
     /**
      * Evaluate all signals and produce a fused anomaly report.
      */
     public AnomalyReport evaluate(SessionContext ctx) {
+        Objects.requireNonNull(ctx, "session context must not be null");
         Map<String, Double> breakdown = new LinkedHashMap<>();
         double weightedSum = 0.0;
         double totalWeight = 0.0;
 
         for (AnomalySignal signal : signals) {
             double score = signal.score(ctx);
+            double weight = signal.weight();
+            if (!Double.isFinite(score) || score < 0.0 || score > 1.0) {
+                throw new IllegalStateException("Anomaly signal " + signal.name() + " returned a score outside [0, 1]");
+            }
+            if (!Double.isFinite(weight) || weight <= 0.0) {
+                throw new IllegalStateException("Anomaly signal " + signal.name() + " returned a non-positive weight");
+            }
             breakdown.put(signal.name(), score);
-            weightedSum += signal.weight() * score;
-            totalWeight += signal.weight();
+            weightedSum += weight * score;
+            totalWeight += weight;
         }
 
         double fusedScore = totalWeight > 0 ? weightedSum / totalWeight : 0.0;

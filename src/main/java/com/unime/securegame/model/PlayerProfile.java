@@ -2,6 +2,7 @@ package com.unime.securegame.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import com.unime.securegame.service.TotpSecretCipher;
 
 @Entity
 @Table(name = "player_profiles")
@@ -22,6 +23,8 @@ public class PlayerProfile {
 
     /** TOTP secret key associated with this player (generated on registration) */
     @Column(name = "totp_secret")
+    @Convert(converter = TotpSecretCipher.class)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String totpSecret;
 
     public PlayerProfile() {}

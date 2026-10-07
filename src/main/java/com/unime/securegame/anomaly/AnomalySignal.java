@@ -6,7 +6,7 @@ package com.unime.securegame.anomaly;
  * Each signal independently evaluates one dimension of a session and returns
  * a score in [0.0, 1.0] where 0.0 = completely normal and 1.0 = fully anomalous.
  *
- * The AnomalyFusionEngine combines these signals via weighted majority voting.
+ * The AnomalyFusionEngine combines these signals using a normalized weighted average.
  */
 public interface AnomalySignal {
 

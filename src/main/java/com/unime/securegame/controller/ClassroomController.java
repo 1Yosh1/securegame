@@ -3,6 +3,7 @@ package com.unime.securegame.controller;
 import com.unime.securegame.model.ClassroomEntity;
 import com.unime.securegame.repository.ClassroomRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,9 +20,13 @@ public class ClassroomController {
     }
 
     @PostMapping("/create")
+    @PreAuthorize("hasRole('TEACHER') and #teacherEmail == authentication.name")
     public ResponseEntity<?> createClassroom(@RequestParam String name, @RequestParam String teacherEmail) {
+        if (name == null || name.isBlank() || name.trim().length() > 120) {
+            return ResponseEntity.badRequest().body("Invalid classroom name");
+        }
         ClassroomEntity classroom = new ClassroomEntity();
-        classroom.setName(name);
+        classroom.setName(name.trim());
         classroom.setTeacherEmail(teacherEmail);
         // Generate a random 6-character code
         String code = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
@@ -31,6 +36,7 @@ public class ClassroomController {
     }
 
     @GetMapping("/teacher/{email}")
+    @PreAuthorize("hasRole('TEACHER') and #email == authentication.name")
     public ResponseEntity<?> getTeacherClassrooms(@PathVariable String email) {
         List<ClassroomEntity> classrooms = classroomRepository.findByTeacherEmail(email);
         return ResponseEntity.ok(classrooms);

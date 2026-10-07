@@ -27,15 +27,22 @@ public record RiskFeature(
         this(passwordEntropy, geoDistanceKm, timeDeviationHours, uaSimilarity, failStreak, mfaType, -1);
     }
 
-    /** Convert to a double[] feature vector for the logistic regression model */
+    /** Convert to a double[] risk vector for both the rule layer and classifier.
+     * Every component points in the same direction: 0 is lower risk, 1 is higher risk.
+     */
     public double[] toVector() {
         return new double[]{
-                passwordEntropy / 100.0,
-                Math.min(geoDistanceKm / 5000.0, 1.0),    // normalize to [0,1], cap at 5000 km
-                Math.min(timeDeviationHours / 12.0, 1.0),  // normalize to [0,1], cap at 12 hours
-                1.0 - uaSimilarity,                         // invert: 0 = identical UA (good), 1 = different (bad)
-                Math.min(failStreak / 10.0, 1.0),           // normalize to [0,1], cap at 10 fails
-                (2.0 - mfaType) / 2.0                       // invert: 0 = WebAuthn (good), 1 = None (bad)
+                1.0 - clamp(passwordEntropy / 100.0),
+                clamp(geoDistanceKm / 5000.0),
+                clamp(timeDeviationHours / 12.0),
+                1.0 - clamp(uaSimilarity),
+                clamp(failStreak / 10.0),
+                clamp((2.0 - mfaType) / 2.0)
         };
+    }
+
+    private static double clamp(double value) {
+        if (Double.isNaN(value)) return 1.0;
+        return Math.max(0.0, Math.min(value, 1.0));
     }
 }

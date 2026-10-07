@@ -9,12 +9,11 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 /**
- * Category C — Deterministic Discrete-Event Simulation Engine.
+ * Category C — Synchronous authentication policy evaluator.
  *
- * Implements a session state machine with:
- *  - Priority event queue (sorted by timestamp seed)
- *  - Policy evaluation: entropy, lockout, MFA-type, device trust, geo (stubs for later phases)
- *  - Deterministic execution: same seed → same outcome
+ * Applies lockout, password-character entropy, and scenario MFA policies, then
+ * persists the decision as an event log. This request-driven state machine does
+ * not implement a discrete-event queue or seeded simulation scheduler.
  */
 @Service
 public class SimulationEngine {
@@ -56,7 +55,7 @@ public class SimulationEngine {
      */
     public LoginResult processLoginAttempt(Long scenarioId, String playerUsername,
                                            String password, int failedAttempts) {
-        Scenario scenario = scenarioRepository.findById(scenarioId)
+        Scenario scenario = scenarioRepository.findByIdAndDeletedFalse(scenarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Scenario not found: " + scenarioId));
 
         // TRANSITION: INIT → AUTH_ATTEMPT
@@ -107,7 +106,7 @@ public class SimulationEngine {
      */
     public LoginResult processTOTPVerification(Long scenarioId, String playerUsername,
                                                String totpSecret, String code, int failedAttempts) {
-        Scenario scenario = scenarioRepository.findById(scenarioId)
+        Scenario scenario = scenarioRepository.findByIdAndDeletedFalse(scenarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Scenario not found: " + scenarioId));
 
         if (failedAttempts >= scenario.getLockoutThreshold()) {

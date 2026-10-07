@@ -4,7 +4,11 @@ import com.unime.securegame.anomaly.signal.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for each individual AnomalySignal.
@@ -13,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class AnomalySignalUnitTest {
 
     private TimeOfDaySignal timeSignal;
+    private AnomalyFusionEngine fusionEngine;
     private GeoDistanceSignal geoSignal;
     private UserAgentSignal uaSignal;
     private FailedAttemptSignal failSignal;
@@ -25,6 +30,7 @@ class AnomalySignalUnitTest {
         uaSignal    = new UserAgentSignal();
         failSignal  = new FailedAttemptSignal();
         trustSignal = new DeviceTrustSignal();
+        fusionEngine = new AnomalyFusionEngine(List.of(timeSignal, geoSignal, uaSignal, failSignal, trustSignal));
     }
 
     // ── TimeOfDaySignal ───────────────────────────────────────────────────────
@@ -124,6 +130,29 @@ class AnomalySignalUnitTest {
     void trust_noTrust_producesOne() {
         SessionContext ctx = ctx(9, 9.0, 1.0, 0, 0.0, "UA", "UA");
         assertEquals(1.0, trustSignal.score(ctx), 0.001);
+    }
+
+    @Test
+    void fusionEngine_preservesSignalPolymorphismAndReturnsStableBreakdown() {
+        SessionContext context = ctx(9, 9.0, 1.0, 0, 1.0, "UA", "UA");
+
+        var first = fusionEngine.evaluate(context);
+        var second = fusionEngine.evaluate(context);
+
+        assertEquals(first.signalBreakdown(), second.signalBreakdown());
+        assertEquals(5, first.signalBreakdown().size());
+        assertEquals(0.0, first.fusedScore(), 0.001);
+    }
+
+    @Test
+    void fusionEngineRejectsInvalidSignalScoresAtTheBoundary() {
+        AnomalySignal invalidSignal = mock(AnomalySignal.class);
+        when(invalidSignal.name()).thenReturn("invalid");
+        when(invalidSignal.weight()).thenReturn(1.0);
+        when(invalidSignal.score(org.mockito.ArgumentMatchers.any())).thenReturn(Double.NaN);
+        AnomalyFusionEngine engine = new AnomalyFusionEngine(List.of(invalidSignal));
+
+        assertThrows(IllegalStateException.class, () -> engine.evaluate(ctx(9, 9.0, 1.0, 0, 1.0, "UA", "UA")));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

@@ -10,6 +10,9 @@ public class Scenario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private long version;
+
     @Column(nullable = false)
     private String name;
 
@@ -40,6 +43,7 @@ public class Scenario {
     // --- Getters & Setters ---
 
     public Long getId() { return id; }
+    public long getVersion() { return version; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

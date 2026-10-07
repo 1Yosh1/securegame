@@ -1,5 +1,9 @@
 package com.unime.securegame.service;
 
+import com.unime.securegame.model.PhishingTemplate;
+import com.unime.securegame.repository.PhishingTemplateRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -24,7 +28,6 @@ public class ScenarioGeneratorService {
     // ── Question banks ────────────────────────────────────────────────────────
 
     private static final Map<String, List<String[]>> CRYPTO_BANKS = new LinkedHashMap<>();
-    private static final Map<String, List<String[]>> PHISHING_BANKS = new LinkedHashMap<>();
     private static final Map<String, List<String[]>> MATCHING_BANKS = new LinkedHashMap<>();
 
     static {
@@ -65,20 +68,6 @@ public class ScenarioGeneratorService {
         ransomQ.add(new String[]{"Best defence against ransomware?", "Antivirus only", "Offline backups", "Stronger passwords", "Firewall rules", "1", "Offline backups allow recovery without paying the ransom."});
         CRYPTO_BANKS.put("ransomware", ransomQ);
 
-        // PHISHING bank: [url, isSafe(true/false), reason]
-        List<String[]> phishUrls = new ArrayList<>();
-        phishUrls.add(new String[]{"https://accounts.google.com/signin", "true", "Legitimate Google sign-in on the official domain."});
-        phishUrls.add(new String[]{"http://g00gle-secure.com/login", "false", "Homograph substitution: zeros replace 'o' in google."});
-        phishUrls.add(new String[]{"https://paypal.com/pay", "true", "Legitimate PayPal domain with HTTPS."});
-        phishUrls.add(new String[]{"http://payp4l-account-verify.com", "false", "'4' substitutes 'a'; unknown TLD with 'verify' urgency pattern."});
-        phishUrls.add(new String[]{"https://github.com/login", "true", "Official GitHub login page."});
-        phishUrls.add(new String[]{"https://githubb.com/secure-login", "false", "Extra 'b' in domain — typosquatting."});
-        phishUrls.add(new String[]{"https://microsoft.com/en-us/account", "true", "Official Microsoft domain."});
-        phishUrls.add(new String[]{"http://microsofft-login.net/verify-account", "false", "Extra 'f', wrong TLD (.net), verification urgency."});
-        phishUrls.add(new String[]{"https://amazon.com/orders", "true", "Official Amazon domain."});
-        phishUrls.add(new String[]{"http://amaz0n-prime-suspend.com/reactivate", "false", "Zero substitution + suspension urgency = classic phishing."});
-        PHISHING_BANKS.put("default", phishUrls);
-
         // MATCHING bank: [term1, term2, term3, def1, def2, def3]
         List<String[]> secTerms = new ArrayList<>();
         secTerms.add(new String[]{"Phishing", "Ransomware", "TOTP", "Fraudulent emails to steal credentials", "Malware that encrypts files for ransom", "Time-based One-Time Password algorithm"});
@@ -88,6 +77,14 @@ public class ScenarioGeneratorService {
         MATCHING_BANKS.put("default", secTerms);
     }
 
+    private final PhishingTemplateRepository phishingTemplateRepository;
+    private final ObjectMapper objectMapper;
+
+    public ScenarioGeneratorService(PhishingTemplateRepository phishingTemplateRepository, ObjectMapper objectMapper) {
+        this.phishingTemplateRepository = phishingTemplateRepository;
+        this.objectMapper = objectMapper;
+    }
+
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
@@ -95,68 +92,53 @@ public class ScenarioGeneratorService {
      * Returns a JSON string compatible with the existing frontend parsers.
      */
     public String generateScenario(String topic, String type) {
+        return generateScenario(topic, type, 42L);
+    }
+
+    public String generateScenario(String topic, String type, long seed) {
+        Objects.requireNonNull(topic, "topic must not be null");
+        Objects.requireNonNull(type, "type must not be null");
         return switch (type) {
-            case "crypto"       -> buildCryptoJson(topic);
-            case "phishing"     -> buildPhishingJson();
-            case "matching"     -> buildMatchingJson();
-            default             -> buildCryptoJson(topic);
+            case "crypto" -> buildCryptoJson(topic, seed);
+            case "phishing" -> buildPhishingJson(seed);
+            case "matching" -> buildMatchingJson(seed);
+            default -> throw new IllegalArgumentException("Unsupported scenario type: " + type);
         };
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Unable to serialize generated scenario content", e);
+        }
     }
 
     // ── Builders ──────────────────────────────────────────────────────────────
 
-    private String buildCryptoJson(String topic) {
-        List<String[]> bank = CRYPTO_BANKS.getOrDefault(topic.toLowerCase(),
+    private String buildCryptoJson(String topic, long seed) {
+        List<String[]> bank = CRYPTO_BANKS.getOrDefault(topic.toLowerCase(Locale.ROOT),
                 CRYPTO_BANKS.get("crypto"));
-        Collections.shuffle(bank, new Random());
-        List<String[]> selected = bank.subList(0, Math.min(3, bank.size()));
-
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < selected.size(); i++) {
-            String[] q = selected.get(i);
-            // q = [question, optA, optB, optC, optD, answerIndex, explanation]
-            sb.append(String.format(
-                "{\"q\":\"%s\",\"opts\":[\"%s\",\"%s\",\"%s\",\"%s\"],\"ans\":%s,\"expl\":\"%s\"}",
-                escape(q[0]), escape(q[1]), escape(q[2]), escape(q[3]), escape(q[4]),
-                q[5], escape(q[6])
-            ));
-            if (i < selected.size() - 1) sb.append(",");
-        }
-        sb.append("]");
-        return sb.toString();
+        List<String[]> shuffled = new ArrayList<>(bank);
+        Collections.shuffle(shuffled, new Random(seed));
+        List<Map<String, Object>> selected = shuffled.stream().limit(3).map(q -> Map.<String, Object>of(
+                "q", q[0], "opts", List.of(q[1], q[2], q[3], q[4]),
+                "ans", Integer.parseInt(q[5]), "expl", q[6])).toList();
+        return toJson(selected);
     }
 
-    private String buildPhishingJson() {
-        List<String[]> bank = new ArrayList<>(PHISHING_BANKS.get("default"));
-        Collections.shuffle(bank, new Random());
-        List<String[]> selected = bank.subList(0, Math.min(6, bank.size()));
-
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < selected.size(); i++) {
-            String[] u = selected.get(i);
-            // u = [url, isSafe, reason]
-            sb.append(String.format(
-                "{\"url\":\"%s\",\"safe\":%s,\"reason\":\"%s\"}",
-                escape(u[0]), u[1], escape(u[2])
-            ));
-            if (i < selected.size() - 1) sb.append(",");
-        }
-        sb.append("]");
-        return sb.toString();
+    private String buildPhishingJson(long seed) {
+        List<PhishingTemplate> templates = new ArrayList<>(phishingTemplateRepository.findAllByEnabledTrueOrderByIdAsc());
+        Collections.shuffle(templates, new Random(seed));
+        List<Map<String, Object>> selected = templates.stream().limit(6).map(template -> Map.<String, Object>of(
+                "url", template.getUrl(), "safe", template.isSafe(), "reason", template.getReason())).toList();
+        return toJson(selected);
     }
 
-    private String buildMatchingJson() {
+    private String buildMatchingJson(long seed) {
         List<String[]> bank = MATCHING_BANKS.get("default");
-        String[] row = bank.get(new Random().nextInt(bank.size()));
-        // row = [term1, term2, term3, def1, def2, def3]
-        return String.format(
-            "{\"terms\":[\"%s\",\"%s\",\"%s\"],\"defs\":[\"%s\",\"%s\",\"%s\"]}",
-            escape(row[0]), escape(row[1]), escape(row[2]),
-            escape(row[3]), escape(row[4]), escape(row[5])
-        );
-    }
-
-    private String escape(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+        String[] row = bank.get(new Random(seed).nextInt(bank.size()));
+        return toJson(Map.of("terms", List.of(row[0], row[1], row[2]),
+                "defs", List.of(row[3], row[4], row[5])));
     }
 }

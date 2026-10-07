@@ -6,6 +6,8 @@ import com.unime.securegame.service.SimulationEngine.LoginResult;
 import java.util.HashMap;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.Map;
 
@@ -26,13 +28,22 @@ public class SimulationController {
      * Body: { "password": "...", "failedAttempts": 0 }
      */
     @PostMapping("/scenarios/{scenarioId}/players/{username}/login")
+    @PreAuthorize("hasRole('TEACHER') or #username == authentication.name")
     public ResponseEntity<Map<String, Object>> login(
             @PathVariable Long scenarioId,
             @PathVariable String username,
-            @RequestBody Map<String, Object> body) {
-
-        String password = (String) body.getOrDefault("password", "");
-        int failedAttempts = (int) body.getOrDefault("failedAttempts", 0);
+            @RequestBody Map<String, Object> body,
+            Authentication authentication) {
+        if (authentication == null || !username.equals(authentication.getName())) {
+            return ResponseEntity.status(403).build();
+        }
+        Object passwordValue = body.getOrDefault("password", "");
+        Object attemptsValue = body.getOrDefault("failedAttempts", 0);
+        if (!(passwordValue instanceof String password) || password.length() > 256
+                || !(attemptsValue instanceof Number attempts) || attempts.intValue() < 0 || attempts.intValue() > 1000) {
+            return ResponseEntity.badRequest().build();
+        }
+        int failedAttempts = attempts.intValue();
 
         LoginResult result = engine.processLoginAttempt(scenarioId, username, password, failedAttempts);
 
@@ -49,16 +60,28 @@ public class SimulationController {
      * Body: { "code": "123456", "failedAttempts": 0 }
      */
     @PostMapping("/scenarios/{scenarioId}/players/{username}/mfa")
+    @PreAuthorize("hasRole('TEACHER') or #username == authentication.name")
     public ResponseEntity<Map<String, Object>> verifyMfa(
             @PathVariable Long scenarioId,
             @PathVariable String username,
-            @RequestBody Map<String, Object> body) {
-
-        String code = (String) body.getOrDefault("code", "");
-        int failedAttempts = (int) body.getOrDefault("failedAttempts", 0);
+            @RequestBody Map<String, Object> body,
+            Authentication authentication) {
+        if (authentication == null || !username.equals(authentication.getName())) {
+            return ResponseEntity.status(403).build();
+        }
+        Object codeValue = body.getOrDefault("code", "");
+        Object attemptsValue = body.getOrDefault("failedAttempts", 0);
+        if (!(codeValue instanceof String code) || !code.matches("\\d{6}")
+                || !(attemptsValue instanceof Number attempts) || attempts.intValue() < 0 || attempts.intValue() > 1000) {
+            return ResponseEntity.badRequest().build();
+        }
+        int failedAttempts = attempts.intValue();
 
         var opt = playerRepo.findByUsername(username);
         if (opt.isEmpty()) return ResponseEntity.notFound().build();
+        if (opt.get().getTotpSecret() == null || opt.get().getTotpSecret().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
         LoginResult result = engine.processTOTPVerification(
                 scenarioId, username, opt.get().getTotpSecret(), code, failedAttempts);
         HashMap<String, Object> resp = new HashMap<>();

@@ -1,47 +1,58 @@
 package com.unime.securegame.controller;
 
+import com.unime.securegame.service.RoomSessionService;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import java.util.*;
 
 @RestController
-@RequestMapping("/api/multiplayer")
 public class RoomController {
-    // In-memory data store for live multiplayer classroom sessions
-    private Map<String, Map<String, Object>> rooms = new HashMap<>();
+    private final RoomSessionService roomSessionService;
 
-    @PostMapping("/create")
-    public Map<String, Object> createRoom(@RequestParam String teacher) {
-        String code = String.format("%04d", new Random().nextInt(10000));
-        Map<String, Object> room = new HashMap<>();
-        room.put("code", code);
-        room.put("teacher", teacher);
-        room.put("topic", "WAITING");
-        room.put("students", new ArrayList<String>());
-        rooms.put(code, room);
-        return room;
+    public RoomController(RoomSessionService roomSessionService) {
+        this.roomSessionService = roomSessionService;
     }
 
-    @PostMapping("/join")
-    public Map<String, Object> joinRoom(@RequestParam String code, @RequestParam String student) {
-        if(rooms.containsKey(code)) {
-            List<String> students = (List<String>) rooms.get(code).get("students");
-            if(!students.contains(student)) students.add(student);
-            return rooms.get(code);
+    @PostMapping({"/api/room/create", "/api/multiplayer/create"})
+    @PreAuthorize("hasRole('TEACHER') and #teacher == authentication.name")
+    public RoomSessionService.RoomView createRoom(@RequestParam String teacher, Authentication authentication) {
+        requireTeacher(authentication);
+        if (!teacher.equals(authentication.getName())) {
+            throw new org.springframework.security.access.AccessDeniedException("A teacher may create rooms only for themselves");
         }
-        throw new RuntimeException("Room not found");
+        return roomSessionService.createRoom(teacher);
     }
 
-    @PostMapping("/setTopic")
-    public Map<String, Object> setTopic(@RequestParam String code, @RequestParam String topic) {
-         if(rooms.containsKey(code)) {
-            rooms.get(code).put("topic", topic);
-            return rooms.get(code);
-         }
-         throw new RuntimeException("Room not found");
+    @PostMapping({"/api/room/join", "/api/multiplayer/join"})
+    @PreAuthorize("isAuthenticated() and #student == authentication.name")
+    public RoomSessionService.RoomView joinRoom(@RequestParam String code, @RequestParam String student,
+                                                Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || !student.equals(authentication.getName())) {
+            throw new org.springframework.security.access.AccessDeniedException("A user may join only as themselves");
+        }
+        return roomSessionService.joinRoom(code, student);
     }
 
-    @GetMapping("/status")
-    public Map<String, Object> getStatus(@RequestParam String code) {
-        return rooms.get(code);
+    @PostMapping({"/api/room/setTopic", "/api/multiplayer/setTopic"})
+    @PreAuthorize("hasRole('TEACHER')")
+    public RoomSessionService.RoomView setTopic(@RequestParam String code, @RequestParam String topic,
+                                                Authentication authentication) {
+        requireTeacher(authentication);
+        return roomSessionService.setTopic(code, topic, authentication.getName());
+    }
+
+    @GetMapping({"/api/room/status", "/api/multiplayer/status"})
+    @PreAuthorize("isAuthenticated()")
+    public RoomSessionService.RoomView getStatus(@RequestParam String code, Authentication authentication) {
+        return roomSessionService.getStatus(code, authentication.getName());
+    }
+
+    private void requireTeacher(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || authentication.getAuthorities().stream().noneMatch(authority ->
+                "ROLE_TEACHER".equals(authority.getAuthority()))) {
+            throw new org.springframework.security.access.AccessDeniedException("Teacher role required");
+        }
     }
 }

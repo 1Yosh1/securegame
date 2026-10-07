@@ -1,5 +1,8 @@
 node_modules
 HELP.md
+.DS_Store
+.freebuff/
+task_plan.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -32,3 +35,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Python ###
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+.env
+.env.*
+!.env.example

@@ -2,14 +2,21 @@ package com.unime.securegame;
 
 import com.unime.securegame.model.CoachFeedback;
 import com.unime.securegame.model.ModelWeight;
+import com.unime.securegame.model.PhishingTemplate;
 import com.unime.securegame.repository.CoachFeedbackRepository;
 import com.unime.securegame.repository.ModelWeightRepository;
+import com.unime.securegame.repository.PhishingTemplateRepository;
+import com.unime.securegame.repository.PlayerProfileRepository;
 import com.unime.securegame.risk.LogisticRegressionModel;
 import com.unime.securegame.risk.RuleBasedLayer;
 import com.unime.securegame.risk.SyntheticDataGenerator;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import com.unime.securegame.service.TotpSecretCipher;
 
 import java.util.List;
 
@@ -21,10 +28,25 @@ import java.util.List;
 public class DataSeeder {
 
     @Bean
+    @Order(0)
+    CommandLineRunner configureTotpSecretEncryption(
+            @Value("${securegame.totp.encryption-key:}") String encryptionKey, Environment environment) {
+        return args -> {
+            boolean production = java.util.Arrays.asList(environment.getActiveProfiles()).contains("prod");
+            if (production && (encryptionKey == null || encryptionKey.isBlank())) {
+                throw new IllegalStateException("SECUREGAME_TOTP_ENCRYPTION_KEY is required in the prod profile");
+            }
+            TotpSecretCipher.configure(encryptionKey);
+        };
+    }
+
+    @Bean
+    @Order(1)
     CommandLineRunner seedData(ModelWeightRepository weightRepo,
                                CoachFeedbackRepository coachRepo,
                                SyntheticDataGenerator dataGen,
-                               LogisticRegressionModel lrModel) {
+                               LogisticRegressionModel lrModel,
+                               PhishingTemplateRepository phishingTemplateRepo) {
         return args -> {
             // Seed model weights if DB is empty
             if (weightRepo.count() == 0) {
@@ -37,6 +59,40 @@ public class DataSeeder {
                 var samples = dataGen.generate(3000, 42L);
                 lrModel.train(samples, 300, 0.1);
                 System.out.println("[SecureGame] Model trained on 3000 synthetic samples.");
+                weightRepo.save(new ModelWeight("riskVectorVersion", -2, 2.0));
+            } else {
+                // Version 1 stored password strength (higher is safer); version 2 stores
+                // risk (higher is more anomalous). Transform legacy LR coefficient and bias
+                // so persisted models preserve their predictions under xRisk = 1 - xStrength.
+                if (weightRepo.findByFeatureName("riskVectorVersion").isEmpty()) {
+                    var entropyWeight = weightRepo.findByFeatureName("passwordEntropy");
+                    if (entropyWeight.isPresent()) {
+                        double oldWeight = entropyWeight.get().getWeight();
+                        entropyWeight.get().setWeight(-oldWeight);
+                        weightRepo.save(entropyWeight.get());
+                        weightRepo.findByFeatureName("bias").ifPresent(bias -> {
+                            bias.setWeight(bias.getWeight() + oldWeight);
+                            weightRepo.save(bias);
+                        });
+                    }
+                    weightRepo.save(new ModelWeight("riskVectorVersion", -2, 2.0));
+                }
+            }
+
+            // Move the curated phishing exercise bank into persistent storage on first startup.
+            if (phishingTemplateRepo.count() == 0) {
+                phishingTemplateRepo.saveAll(List.of(
+                    new PhishingTemplate("https://accounts.google.com/signin", true, "Legitimate Google sign-in on the official domain."),
+                    new PhishingTemplate("http://g00gle-secure.com/login", false, "Homograph substitution: zeros replace 'o' in google."),
+                    new PhishingTemplate("https://paypal.com/pay", true, "Legitimate PayPal domain with HTTPS."),
+                    new PhishingTemplate("http://payp4l-account-verify.com", false, "'4' substitutes 'a'; unknown TLD with 'verify' urgency pattern."),
+                    new PhishingTemplate("https://github.com/login", true, "Official GitHub domain."),
+                    new PhishingTemplate("https://githubb.com/secure-login", false, "Extra 'b' in domain — typosquatting."),
+                    new PhishingTemplate("https://microsoft.com/en-us/account", true, "Official Microsoft domain."),
+                    new PhishingTemplate("http://microsofft-login.net/verify-account", false, "Extra 'f', wrong TLD (.net), verification urgency."),
+                    new PhishingTemplate("https://amazon.com/orders", true, "Official Amazon domain."),
+                    new PhishingTemplate("http://amaz0n-prime-suspend.com/reactivate", false, "Zero substitution + suspension urgency = classic phishing.")
+                ));
             }
 
             // Seed coach feedback tips if DB is empty
@@ -77,6 +133,26 @@ public class DataSeeder {
                 );
                 coachRepo.saveAll(tips);
                 System.out.println("[SecureGame] Seeded " + tips.size() + " coach feedback tips.");
+            }
+        };
+    }
+
+    @Bean
+    @Order(2)
+    CommandLineRunner encryptLegacyTotpSecrets(PlayerProfileRepository playerProfileRepository) {
+        return args -> {
+            long batchSize = 100;
+            for (long offset = 0, total = playerProfileRepository.count(); offset < total; offset += batchSize) {
+                List<com.unime.securegame.model.PlayerProfile> batch = playerProfileRepository.findAll(
+                        org.springframework.data.domain.PageRequest.of(
+                                Math.toIntExact(offset / batchSize), Math.toIntExact(batchSize))).getContent();
+                batch.forEach(profile -> {
+                    String storedValue = profile.getTotpSecret();
+                    if (storedValue != null && !storedValue.isBlank() && !TotpSecretCipher.isEncrypted(storedValue)) {
+                        profile.setTotpSecret(TotpSecretCipher.encryptLegacyValue(storedValue));
+                        playerProfileRepository.saveAndFlush(profile);
+                    }
+                });
             }
         };
     }

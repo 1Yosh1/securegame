@@ -44,6 +44,13 @@ class RiskScoringTest {
     }
 
     @Test
+    void weakPasswordProducesMoreRuleRiskThanStrongPassword() {
+        RiskFeature weak = new RiskFeature(10, 0, 0, 1.0, 0, 2);
+        RiskFeature strong = new RiskFeature(90, 0, 0, 1.0, 0, 2);
+        assertTrue(ruleLayer.score(weak).score() > ruleLayer.score(strong).score());
+    }
+
+    @Test
     void ruleScore_alwaysInZeroToOne() {
         RiskFeature f = new RiskFeature(50, 200, 3, 0.7, 2, 1);
         RuleBasedLayer.RuleScore score = ruleLayer.score(f);
@@ -66,6 +73,13 @@ class RiskScoringTest {
         RiskFeature f = new RiskFeature(60, 100, 2, 0.8, 1, 1);
         double pred = lrModel.predict(f);
         assertTrue(pred >= 0.0 && pred <= 1.0, "LR prediction must be in [0,1]: " + pred);
+    }
+
+    @Test
+    void lrModel_weakPasswordAlonePredictsMoreRiskThanStrongPassword() {
+        RiskFeature weak = new RiskFeature(10, 0, 0, 1.0, 0, 2);
+        RiskFeature strong = new RiskFeature(90, 0, 0, 1.0, 0, 2);
+        assertTrue(lrModel.predict(weak) > lrModel.predict(strong));
     }
 
     @Test
