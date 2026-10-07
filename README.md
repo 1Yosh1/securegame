@@ -9,10 +9,6 @@ SecureGame is a gamified cybersecurity training application designed for univers
 - **Topics Covered:** Basic Authentication, Malware Fundamentals, Social Engineering, Network Security, Cryptography, Web Vulnerabilities (OWASP), Zero Trust, and more.
 - **Multiplayer Capabilities:** Classroom teacher/student roles, room lobbies, and real-time topic delivery over authenticated WebSocket/STOMP.
 
-## Course Alignment and Review
-
-The review compared SecureGame with course lecture PDFs supplied locally under `SW/` (the PDFs are not checked into this repository). See the [assessment report](docs/PROJECT_ASSESSMENT_REPORT.md) for evidence, partial/missing features, and remaining risks, and the [class and methods report](docs/PROJECT_CLASS_AND_METHODS_REPORT.md) for implementation-level examples. Lecture material is not a signed-off project acceptance rubric, so the review does not claim that every instructor requirement is met.
-
 ## Prerequisites
 
 - **Java 21** or later
